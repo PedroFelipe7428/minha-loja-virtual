@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vera Lã e Fofura</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Pacifico&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #fff1f2; /* rosa bem claro */
+        }
+        .pacifico-font {
+            font-family: 'Pacifico', cursive;
+        }
+        /* Esconde a scrollbar mas permite rolar */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        /* Classes para mostrar/esconder seções */
+        .hidden-view {
+            display: none !important;
+        }
+        /* Animação de Carregamento */
+        .loader {
+            width: 50px;
+            height: 50px;
+            position: relative;
+        }
+        .loader-yarn {
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Estilos para campos desabilitados */
+        input:disabled, select:disabled, button:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        input.readonly-style {
+            background-color: #f3f4f6; /* bg-gray-100 */
+        }
+    </style>
+</head>
+<body class="bg-pink-50">
+
+    <!-- App Container -->
+    <div id="app-container">
+
+        <!-- Header -->
+        <header id="app-header" class="bg-white/80 backdrop-blur-lg shadow-md sticky top-0 z-40">
+            <!-- Header content will be injected by JavaScript -->
+        </header>
+
+        <!-- Main Content -->
+        <main id="main-content" class="container mx-auto p-4 md:p-6">
+            
+            <!-- Views will be injected and toggled here -->
+            <div id="store-view" class="view"></div>
+            <div id="cart-view" class="view hidden-view"></div>
+            <div id="address-view" class="view hidden-view"></div>
+            <div id="payment-view" class="view hidden-view"></div>
+            <div id="customerLogin-view" class="view hidden-view"></div>
+            <div id="register-view" class="view hidden-view"></div>
+            <div id="myOrders-view" class="view hidden-view"></div>
+            <div id="profile-view" class="view hidden-view"></div>
+            <div id="adminDashboard-view" class="view hidden-view"></div>
+            <div id="terms-view" class="view hidden-view"></div>
+            
+            <!-- Loading/Error states -->
+            <div id="loading-view" class="text-center p-10 text-gray-500"></div>
+            <div id="firebase-error-view" class="text-center p-10 bg-red-100 text-red-700 rounded-lg"></div>
+
+        </main>
+        
+        <!-- Modals Container -->
+        <div id="modals-container">
+             <!-- Modals will be injected here -->
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut,
+            updateProfile
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            doc, 
+            addDoc, 
+            onSnapshot, 
+            query, 
+            updateDoc,
+            where,
+            Timestamp,
+            setDoc,
+            deleteDoc,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- SUA CONFIGURAÇÃO DO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyBvCIdbP5xhREUnSBRnfmvDZg21j2ofnNk",
+            authDomain: "la-e-fofura-loja.firebaseapp.com",
+            projectId: "la-e-fofura-loja",
+            storageBucket: "la-e-fofura-loja.appspot.com",
+            messagingSenderId: "832415821315",
+            appId: "1:832415821315:web:37b2f6a209764c8be9e836",
+            measurementId: "G-1LRC9K5PDT"
+        };
+        
+        // --- DADOS INICIAIS ---
+        const initialProducts = [ { name: 'Sousplat de Lã Candy Color', category: 'Sousplat', description: 'Deixe sua mesa posta mais charmosa com este sousplat em tons pastéis. Feito com lã macia.', price: 28.50, imageUrl: 'https://placehold.co/400x400/FFE4E1/333333?text=Sousplat' }, { name: 'Trilho de Mesa Folhagens', category: 'Trilho de Mesa', description: 'Um toque de natureza para sua sala de jantar. Design elegante com detalhes de folhas.', price: 75.00, imageUrl: 'https://placehold.co/400x400/D8F8D8/333333?text=Trilho+de+Mesa' }, { name: 'Jogo de Cozinha Completo Corações', category: 'Jogo de Cozinha', description: 'Kit com 3 peças (passadeira e dois tapetes) para alegrar sua cozinha com muito amor.', price: 159.90, imageUrl: 'https://placehold.co/400x400/FFD1DC/333333?text=Jogo+de+Cozinha' }, { name: 'Jogo de Tapetes para Banheiro Nude', category: 'Jogo de Tapete', description: 'Conforto e elegância para seu banheiro. Kit com 2 peças em tons neutros e sofisticados.', price: 129.90, imageUrl: 'https://placehold.co/400x400/F5DEB3/333333?text=Jogo+de+Tapetes' }, { name: 'Sousplat Clássico Cru', category: 'Sousplat', description: 'A versatilidade do cru para combinar com qualquer louça. Peça essencial e atemporal.', price: 22.00, imageUrl: 'https://placehold.co/400x400/F5F5DC/333333?text=Sousplat+Cru' }, { name: 'Trilho de Mesa Geométrico', category: 'Trilho de Mesa', description: 'Modernidade e estilo para sua mesa com padrões geométricos. Feito com fio de alta qualidade.', price: 82.50, imageUrl: 'https://placehold.co/400x400/ADD8E6/333333?text=Trilho+Geométrico' }, ];
+        const initialCategories = [ { name: 'Sousplat' }, { name: 'Trilho de Mesa' }, { name: 'Jogo de Cozinha' }, { name: 'Jogo de Tapete' } ];
+        
+        // --- ÍCONES SVG ---
+        const ICONS = {
+            shoppingCart: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>`,
+            store: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>`,
+            admin: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`,
+            package: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-14L4 7m0 0v10l8 4m0-14L4 7" /></svg>`,
+            checkCircle: `<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-green-500 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+            welcome: `<svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-pink-500 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/><path d="M16.5 3L12 12 7.5 3M12 12l-1 6h2l-1-6zM12 12l-2-3h4l-2 3z"/></svg>`,
+            trash: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>`,
+            edit: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L13.196 7.196z" /></svg>`,
+            pix: `<svg class="w-6 h-6 mr-2" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><rect fill="none" height="256" width="256"/><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm40,111.57-20-29.43-20,29.43a8,8,0,0,1-13.1-.28l-20-29.43-20,29.43a8,8,0,0,1-13.1-.28L44.25,96a8,8,0,0,1,13.1-.28L76.83,125,96.25,96.43a8,8,0,0,1,13.1.28L128.83,126l19.42-29.25a8,8,0,0,1,13.1-.28L180.75,126l19.42-29.25a8,8,0,0,1,13.1-.28L211.75,96a8,8,0,0,1-13.1.28L179.25,125l-19.42-29.25a8,8,0,0,1-13.1.28L128,124.43,115,106.13a8,8,0,0,1,13.1-11.41l15.84,22.84,15.83-22.84a8,8,0,0,1,13.1,11.41l-22.3,32.14a8,8,0,0,1-13.1,0L117,106.13,94.7,138.27a8,8,0,0,1-13.1,0L59.3,96a8,8,0,0,1-13.1-.28L28.32,128a8,8,0,0,1,13.1.28L60.8,157.71a8,8,0,0,1-1.3,11.41,8,8,0,0,1-11.8,1.3L28,148.27V128A96,96,0,0,1,128,32Z" fill="#32BCAD"/></svg>`,
+            copy: `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`,
+            loader: `<svg class="loader-yarn" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="45" fill="none" stroke="#ec4899" stroke-width="5" stroke-dasharray="10, 15" /></svg>`,
+            user: `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>`
+        };
+
+        const AVATARS = {
+            avatar1: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#ffc0cb"></rect><rect x="0" y="0" width="36" height="36" transform="translate(4 4) rotate(20 18 18) scale(1.1)" fill="#ff69b4" rx="36"></rect><g transform="translate(-4 -1) rotate(0 18 18)"><path d="M15 19c2 1 4 1 6 0" stroke="#000000" fill="none" stroke-linecap="round"></path><rect x="11" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="23" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+            avatar2: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#add8e6"></rect><rect x="0" y="0" width="36" height="36" transform="translate(2 6) rotate(326 18 18) scale(1)" fill="#87ceeb" rx="6"></rect><g transform="translate(-2 2) rotate(6 18 18)"><path d="M13,21 a1,0.75 0 0,0 10,0" fill="#000000"></path><rect x="10" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="24" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+            avatar3: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#d8bfd8"></rect><rect x="0" y="0" width="36" height="36" transform="translate(6 6) rotate(26 18 18) scale(1.2)" fill="#c7a2c7" rx="36"></rect><g transform="translate(2 2) rotate(6 18 18)"><path d="M14 21c1.666-1.333 3.333-1.333 5 0" stroke="#000000" fill="none" stroke-linecap="round"></path><rect x="13" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="21" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+            avatar4: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#90ee90"></rect><rect x="0" y="0" width="36" height="36" transform="translate(-4 -4) rotate(242 18 18) scale(1.1)" fill="#3cb371" rx="36"></rect><g transform="translate(0 -4) rotate(0 18 18)"><path d="M15 20c2 1 4 1 6 0" stroke="#000000" fill="none" stroke-linecap="round"></path><rect x="13" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="21" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+            avatar5: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#ffdcb4"></rect><rect x="0" y="0" width="36" height="36" transform="translate(4 -2) rotate(102 18 18) scale(1.2)" fill="#ffaa71" rx="36"></rect><g transform="translate(2 6) rotate(-2 18 18)"><path d="M13,20 a1,1 0 0,0 10,0" fill="#000000"></path><rect x="12" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="22" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+            avatar6: `<svg viewBox="0 0 36 36" fill="none" role="img" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"><mask id="mask__beam" maskUnits="userSpaceOnUse" x="0" y="0" width="36" height="36"><rect width="36" height="36" rx="72" fill="#FFFFFF"></rect></mask><g mask="url(#mask__beam)"><rect width="36" height="36" fill="#f0e68c"></rect><rect x="0" y="0" width="36" height="36" transform="translate(0 0) rotate(22 18 18) scale(1)" fill="#ffd700" rx="36"></rect><g transform="translate(0 0) rotate(2 18 18)"><path d="M15 19c2 1 4 1 6 0" stroke="#000000" fill="none" stroke-linecap="round"></path><rect x="14" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect><rect x="20" y="14" width="1.5" height="2" rx="1" stroke="none" fill="#000000"></rect></g></g></svg>`,
+        };
+
+        // --- GLOBAL STATE ---
+        const state = {
+            view: 'store',
+            cart: [],
+            shippingAddress: null,
+            shippingCost: 0,
+            products: [],
+            orders: [],
+            categories: [],
+            user: null,
+            userProfile: null,
+            isAuthReady: false,
+            isLoadingProducts: true,
+            isLoadingOrders: true,
+            selectedCategory: 'All',
+            db: null,
+            auth: null,
+            listeners: {} // To hold unsubscribe functions
+        };
+
+        // --- DOM Elements ---
+        const DOMElements = {
+            header: document.getElementById('app-header'),
+            views: {
+                store: document.getElementById('store-view'),
+                cart: document.getElementById('cart-view'),
+                address: document.getElementById('address-view'),
+                payment: document.getElementById('payment-view'),
+                customerLogin: document.getElementById('customerLogin-view'),
+                register: document.getElementById('register-view'),
+                myOrders: document.getElementById('myOrders-view'),
+                profile: document.getElementById('profile-view'),
+                adminDashboard: document.getElementById('adminDashboard-view'),
+                terms: document.getElementById('terms-view'),
+            },
+            loadingView: document.getElementById('loading-view'),
+            firebaseErrorView: document.getElementById('firebase-error-view'),
+            modalsContainer: document.getElementById('modals-container'),
+        };
+        
+        // --- RENDER FUNCTIONS ---
+        const render = {
+            header() {
+                const cartItemCount = state.cart.length;
+                const isAdmin = state.userProfile?.isAdmin;
+                const avatarId = state.userProfile?.avatarId || 'avatar1';
+                const avatarSvg = AVATARS[avatarId];
+
+                let userSection;
+                if (state.user) {
+                    userSection = `
+                        <button data-view="myOrders" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                            ${ICONS.package} <span class="hidden md:inline">Minhas Compras</span>
+                        </button>
+                        ${isAdmin ? `
+                        <button data-view="adminDashboard" class="nav-button flex items-center gap-2 p-2 rounded-lg text-yellow-800 bg-yellow-100 border border-yellow-200 hover:bg-yellow-200">
+                            ${ICONS.admin} <span class="hidden md:inline">Admin</span>
+                        </button>` : ''}
+                        <button data-view="profile" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                            <div class="h-8 w-8 rounded-full border-2 border-pink-300 overflow-hidden flex justify-center items-center">${avatarSvg}</div>
+                            <span class="hidden md:inline">Perfil</span>
+                        </button>
+                    `;
+                } else {
+                    userSection = `
+                        <button data-view="customerLogin" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                            <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">?</div>
+                            <span class="hidden md:inline">Login/Registrar</span>
+                        </button>
+                    `;
+                }
+                
+                DOMElements.header.innerHTML = `
+                    <div class="container mx-auto flex justify-between items-center p-4">
+                        <div data-view="store" data-category="All" class="text-2xl font-bold text-pink-500 cursor-pointer pacifico-font">
+                            Vera Lã e Fofura
+                        </div>
+                        <nav class="flex items-center gap-1 md:gap-2">
+                            <div class="relative group">
+                                <button data-view="store" data-category="All" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                                    ${ICONS.store}
+                                    <span class="hidden md:inline">Loja</span>
+                                </button>
+                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
+                                    <a href="#" data-view="store" data-category="All" class="block px-4 py-2 text-sm text-gray-700 hover:bg-pink-50">Todos os Produtos</a>
+                                    ${state.categories.map(cat => `<a href="#" data-view="store" data-category="${cat.name}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-pink-50">${cat.name}</a>`).join('')}
+                                </div>
+                            </div>
+                            <button data-view="cart" class="nav-button relative flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                                ${ICONS.shoppingCart}
+                                <span class="hidden md:inline">Carrinho</span>
+                                ${cartItemCount > 0 ? `<span class="absolute top-0 right-0 h-5 w-5 bg-pink-500 text-white text-xs rounded-full flex items-center justify-center">${cartItemCount}</span>` : ''}
+                            </button>
+                            ${userSection}
+                        </nav>
+                    </div>
+                `;
+            },
+
+            loading(message = "Carregando...") {
+                return `
+                    <div class="flex flex-col items-center justify-center p-10">
+                        <div class="loader">${ICONS.loader}</div>
+                        <p class="text-gray-500 mt-4">${message}</p>
+                    </div>
+                `;
+            },
+            
+            store() {
+                const view = DOMElements.views.store;
+                if (state.isLoadingProducts) {
+                    view.innerHTML = this.loading("Carregando produtos fofinhos...");
+                    return;
+                }
+                const filteredProducts = state.products.filter(p => state.selectedCategory === 'All' || p.category === state.selectedCategory);
+                
+                if (filteredProducts.length === 0) {
+                     view.innerHTML = `<div class="text-center p-10 bg-white rounded-lg shadow-md"><h2 class="text-2xl font-semibold text-gray-700">Nenhum produto encontrado.</h2><p class="text-gray-500 mt-2">Tente outra categoria ou volte mais tarde!</p></div>`;
+                     return;
+                }
+
+                view.innerHTML = `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        ${filteredProducts.map(product => `
+                            <div class="bg-white rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 flex flex-col">
+                                <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-48 sm:h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x400/CCCCCC/333333?text=Imagem+Indisponível';">
+                                <div class="p-4 flex flex-col flex-grow">
+                                    <h3 class="text-lg font-semibold text-gray-800">${product.name}</h3>
+                                    <p class="text-sm text-gray-500 mt-1">${product.category}</p>
+                                    <p class="text-sm text-gray-600 mt-2 flex-grow">${product.description}</p>
+                                    <div class="mt-4 flex justify-between items-center">
+                                        <span class="text-xl font-bold text-pink-500">R$ ${product.price.toFixed(2).replace('.', ',')}</span>
+                                        <button data-product-id="${product.id}" class="add-to-cart-btn bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 transition-colors text-sm font-semibold">
+                                            Adicionar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            },
+
+            cart() {
+                const view = DOMElements.views.cart;
+                if (state.cart.length === 0) {
+                    view.innerHTML = `
+                        <div class="text-center p-10 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8">
+                            <h2 class="text-2xl font-semibold text-gray-700">Seu carrinho está vazio!</h2>
+                            <p class="text-gray-500 mt-2">Adicione alguns produtos fofinhos para vê-los aqui.</p>
+                        </div>
+                    `;
+                    return;
+                }
+                const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+
+                view.innerHTML = `
+                    <div class="max-w-4xl mx-auto mt-6">
+                        <div class="bg-white rounded-lg shadow-xl p-6">
+                            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 border-b pb-4">Seu Carrinho</h2>
+                            <div id="cart-items-container" class="space-y-4">
+                                ${state.cart.map((item, index) => `
+                                    <div class="flex items-center justify-between border-b pb-2">
+                                        <div class="flex items-center space-x-4">
+                                            <img src="${item.imageUrl}" alt="${item.name}" class="w-16 h-16 rounded-md object-cover" onerror="this.onerror=null;this.src='https://placehold.co/100x100/CCCCCC/333333?text=Img';">
+                                            <div>
+                                                <h3 class="font-semibold text-gray-700">${item.name}</h3>
+                                                <p class="text-sm text-gray-500">R$ ${item.price.toFixed(2).replace('.', ',')}</p>
+                                            </div>
+                                        </div>
+                                        <button data-item-index="${index}" class="remove-from-cart-btn text-red-500 hover:text-red-700 p-2 rounded-full transition-colors">${ICONS.trash}</button>
+                                    </div>
+                                `).join('')}
+                            </div>
+
+                            <div class="mt-8 pt-4 border-t text-right space-y-2">
+                                <p class="text-lg">Subtotal: <span class="font-semibold">R$ ${subtotal.toFixed(2).replace('.', ',')}</span></p>
+                                <button data-view="address" class="nav-button mt-4 bg-green-500 text-white px-8 py-3 rounded-full hover:bg-green-600 transition-colors text-lg font-bold w-full sm:w-auto">
+                                    Informar Endereço e Frete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            customerLogin(error = '') {
+                const view = DOMElements.views.customerLogin;
+                view.innerHTML = `
+                     <div class="max-w-md mx-auto mt-10 sm:mt-20">
+                        <form id="login-form" class="bg-white shadow-xl rounded-lg p-8">
+                            <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">Login</h2>
+                            ${error ? `<div id="login-error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 text-center">${error}</div>` : '<div id="login-error"></div>'}
+                            <div class="mb-4">
+                                <label class="block text-gray-700 text-sm font-bold mb-2" for="login-email">Email</label>
+                                <input id="login-email" type="email" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="mb-6">
+                                <label class="block text-gray-700 text-sm font-bold mb-2" for="login-password">Senha</label>
+                                <input id="login-password" type="password" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 mb-3 leading-tight focus:outline-none focus:shadow-outline" required>
+                            </div>
+                            <div class="flex items-center justify-center mb-4">
+                                <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-6 rounded-full transition-colors">Entrar</button>
+                            </div>
+                            <p class="text-center text-sm text-gray-600">
+                                Não tem uma conta?
+                                <button type="button" data-view="register" class="nav-button font-bold text-pink-500 hover:underline">Registre-se</button>
+                            </p>
+                        </form>
+                    </div>
+                `;
+            },
+
+            register(error = '') {
+                 const view = DOMElements.views.register;
+                 view.innerHTML = `
+                    <div class="max-w-xl mx-auto mt-10 sm:mt-20">
+                        <form id="register-form" class="bg-white shadow-xl rounded-lg p-8">
+                            <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Criar Conta</h2>
+                             ${error ? `<div id="register-error" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 text-center">${error}</div>` : '<div id="register-error" class="hidden"></div>'}
+                            
+                            <fieldset class="border-t-2 border-pink-200 pt-4 mb-6">
+                                <legend class="text-lg font-semibold text-gray-600 px-2">Dados Pessoais e de Acesso</legend>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="reg-name">Nome Completo</label>
+                                        <input id="reg-name" name="name" type="text" maxlength="50" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="reg-birthdate">Data de Nascimento</label>
+                                        <input id="reg-birthdate" name="birthDate" type="date" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="reg-email">Email</label>
+                                        <input id="reg-email" name="email" type="email" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="reg-password">Senha</label>
+                                        <input id="reg-password" name="password" type="password" maxlength="20" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700" required />
+                                        <p class="text-xs text-gray-500 mt-1">Mínimo 6 caracteres.</p>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            
+                             <fieldset class="border-t-2 border-pink-200 pt-4 mb-6">
+                                <div class="mb-4">
+                                     <label class="flex items-center">
+                                        <input id="reg-terms" name="terms" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500" required>
+                                        <span class="ml-2 text-sm text-gray-900">Eu li e aceito os <button type="button" data-view="terms" class="nav-button font-bold text-pink-500 hover:underline">Termos de Serviço</button>.</span>
+                                    </label>
+                                </div>
+                            </fieldset>
+
+                            <div class="flex items-center justify-center mb-4">
+                                <button type="submit" class="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-6 rounded-full transition-colors">Finalizar Cadastro</button>
+                            </div>
+                            <p class="text-center text-sm text-gray-600"> Já tem uma conta? <button type="button" data-view="customerLogin" class="nav-button font-bold text-pink-500 hover:underline">Faça Login</button> </p>
+                        </form>
+                    </div>
+                 `;
+            },
+            
+            address() {
+                const view = DOMElements.views.address;
+                const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+                
+                view.innerHTML = `
+                    <div class="max-w-2xl mx-auto mt-6">
+                        <form id="address-form" class="bg-white shadow-xl rounded-lg p-8">
+                            <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Endereço de Entrega</h2>
+                            <div id="address-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 text-center"></div>
+
+                            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                                <h3 class="font-semibold text-lg mb-2">Resumo do Pedido</h3>
+                                <div class="space-y-1 text-gray-700">
+                                    <div class="flex justify-between"><span>Subtotal:</span> <span>R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
+                                    <div class="flex justify-between"><span>Frete:</span> <span id="address-shipping-cost">Aguardando CEP...</span></div>
+                                    <div class="flex justify-between font-bold text-xl border-t pt-2 mt-2"><span>Total:</span> <span id="address-total-cost">R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
+                                </div>
+                            </div>
+                            
+                            <fieldset>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                    <div class="md:col-span-1">
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-cep">CEP</label>
+                                        <input id="addr-cep" name="cep" type="text" placeholder="00000-000" maxlength="9" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
+                                    </div>
+                                    <div class="md:col-span-2">
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-street">Rua / Logradouro</label>
+                                        <input id="addr-street" name="street" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 readonly-style" readonly required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-number">Número</label>
+                                        <input id="addr-number" name="number" type="text" inputmode="numeric" pattern="[0-9]*" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
+                                    </div>
+                                     <div class="md:col-span-2">
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-complement">Complemento (Opcional)</label>
+                                        <input id="addr-complement" name="complement" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-neighborhood">Bairro</label>
+                                        <input id="addr-neighborhood" name="neighborhood" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 readonly-style" readonly required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-city">Cidade</label>
+                                        <input id="addr-city" name="city" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 readonly-style" readonly required />
+                                    </div>
+                                    <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-state">Estado</label>
+                                        <input id="addr-state" name="state" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 readonly-style" readonly required />
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <div class="mt-8 flex justify-center">
+                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full transition-colors">
+                                    Confirmar Endereço e Ir para Pagamento
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+            },
+
+            terms() {
+                const view = DOMElements.views.terms;
+                view.innerHTML = `
+                    <div class="max-w-4xl mx-auto p-4 sm:p-6 mt-6 bg-white rounded-lg shadow-xl">
+                        <h1 class="text-3xl font-bold text-gray-800 mb-4">Termos de Serviço e Política de Privacidade</h1>
+                        <p class="text-sm text-gray-500 mb-6">Última atualização: 24 de Junho de 2024</p>
+                        <div class="prose max-w-none text-gray-700">
+                            <p>Bem-vindo(a) à Vera Lã e Fofura! Agradecemos por escolher nossos produtos artesanais. Ao utilizar nosso site e realizar uma compra, você concorda com os seguintes termos e condições.</p>
+                            
+                            <h2 class="font-semibold mt-6">1. Coleta de Dados</h2>
+                            <p>Para processar seu pedido e garantir uma entrega segura, coletamos as seguintes informações durante o cadastro: nome completo, data de nascimento, e-mail e senha. O seu endereço completo será solicitado no momento de finalizar a compra, exclusivamente para o envio dos produtos.</p>
+                            
+                            <h2 class="font-semibold mt-6">2. Uso das Informações</h2>
+                            <p>As informações coletadas são para uso exclusivo da Vera Lã e Fofura para: </p>
+                            <ul>
+                                <li>Processamento e envio de pedidos.</li>
+                                <li>Comunicação sobre o status do seu pedido.</li>
+                                <li>Verificação de identidade e segurança da conta.</li>
+                            </ul>
+                            <p><strong>Nós não compartilhamos, vendemos ou alugamos seus dados pessoais a terceiros.</strong></p>
+
+                            <h2 class="font-semibold mt-6">3. Pagamento via PIX</h2>
+                            <p>Os pagamentos são realizados via PIX. As instruções e chave com o valor exato serão fornecidos na tela de pagamento. Após realizar o pagamento, você deverá clicar em "Já paguei, registrar meu pedido" para que possamos confirmar o pagamento e iniciar a preparação do envio.</p>
+                            
+                            <h2 class="font-semibold mt-6">4. Prazos e Envio</h2>
+                            <p>Após a confirmação do pagamento, seu pedido entrará em fase de preparação. O prazo para postagem pode variar, pois nossos produtos são artesanais. O frete é calculado com base no CEP de destino e o valor final é informado no carrinho antes da finalização da compra.</p>
+
+                             <h2 class="font-semibold mt-6">5. Responsabilidades do Usuário</h2>
+                             <p>É responsabilidade do usuário fornecer informações corretas e atualizadas, especialmente o endereço de entrega. Endereços incorretos podem resultar em atrasos ou na impossibilidade de entrega do pedido.</p>
+
+                            <p class="mt-8">Ao marcar a caixa "Li e aceito os Termos de Serviço", você confirma que está ciente e concorda com todas as políticas descritas acima. Se tiver qualquer dúvida, entre em contato conosco.</p>
+
+                            <div class="text-center mt-8">
+                                <button data-view="register" class="nav-button bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600">Voltar ao Cadastro</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            payment() {
+                const view = DOMElements.views.payment;
+                const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+                const total = subtotal + state.shippingCost;
+                 
+                const PIX_KEY = "16988380034";
+                const formattedPixKey = PIX_KEY.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+
+                view.innerHTML = `
+                    <div class="max-w-md mx-auto mt-6">
+                        <div id="payment-container" class="bg-white rounded-lg shadow-xl p-8">
+                            <div class="flex items-center justify-center text-2xl font-bold text-gray-800 mb-4">
+                                ${ICONS.pix}
+                                <span>Pagar com Pix</span>
+                            </div>
+                            <p class="text-gray-600 mb-6 text-center">Para finalizar, faça um Pix para a chave abaixo com o valor exato da sua compra.</p>
+
+                            <div class="text-center bg-teal-50 border border-teal-200 rounded-lg p-4 my-6">
+                                <p class="font-semibold text-teal-800">1. Copie a chave e pague no app do seu banco:</p>
+                                <div class="my-2">
+                                    <p class="text-gray-500 text-sm">Chave Pix (Celular):</p>
+                                    <p class="font-mono text-xl my-1">${formattedPixKey}</p>
+                                </div>
+                                <button id="copy-pix-key-btn" class="flex items-center justify-center w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition-colors">
+                                    ${ICONS.copy} Copiar Chave Pix
+                                </button>
+                                <p class="text-gray-500 text-sm mt-4">Valor Total:</p>
+                                <p class="font-bold text-2xl text-pink-600">R$ ${total.toFixed(2).replace('.',',')}</p>
+                            </div>
+                            
+                            <div class="text-center bg-pink-50 border border-pink-200 rounded-lg p-4 mb-6">
+                                <p class="font-semibold text-pink-800">2. Confirme o seu Pedido</p>
+                                <p class="text-sm text-gray-600">Após realizar o pagamento, clique no botão abaixo para registrar seu pedido. Nós confirmaremos o pagamento manualmente para iniciar a preparação.</p>
+                            </div>
+
+                            <div id="payment-feedback" class="mt-6">
+                                <button id="confirm-order-btn" class="w-full bg-pink-500 text-white font-bold py-3 px-6 rounded-full hover:bg-pink-600 transition-colors flex items-center justify-center">
+                                    Já paguei, registrar meu pedido!
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            profile() {
+                const view = DOMElements.views.profile;
+                if (!state.userProfile) {
+                    view.innerHTML = this.loading("Carregando perfil...");
+                    return;
+                }
+                const avatarSvg = AVATARS[state.userProfile.avatarId || 'avatar1'];
+                view.innerHTML = `
+                    <div class="max-w-2xl mx-auto p-4 sm:p-6 mt-6 bg-white rounded-lg shadow-xl">
+                        <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6 border-b pb-6 mb-6">
+                            <div class="h-24 w-24 rounded-full border-4 border-pink-300 shadow-md overflow-hidden flex justify-center items-center">
+                                ${avatarSvg}
+                            </div>
+                            <div class="w-full text-center sm:text-left">
+                                <div id="profile-name-display" class="flex items-center justify-center sm:justify-start space-x-3">
+                                    <h2 class="text-3xl font-bold text-gray-800">Olá, ${state.userProfile.name}!</h2>
+                                    <button id="edit-name-btn" class="text-gray-400 hover:text-pink-500">${ICONS.edit}</button>
+                                </div>
+                                <div id="profile-name-edit" class="hidden flex items-center space-x-2">
+                                    <input type="text" id="new-name-input" value="${state.userProfile.name}" maxlength="50" class="text-2xl font-bold text-gray-800 border-b-2 border-pink-300 focus:outline-none w-full"/>
+                                    <button id="save-name-btn" class="bg-green-500 text-white rounded-full p-2 hover:bg-green-600">✓</button>
+                                    <button id="cancel-name-btn" class="bg-red-500 text-white rounded-full p-2 hover:bg-red-600">X</button>
+                                </div>
+                                <p class="text-gray-500">${state.user.email}</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <h3 class="text-xl font-semibold text-gray-700 mb-4">Escolha seu avatar</h3>
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-4">
+                                ${Object.keys(AVATARS).map(avatarId => `
+                                    <button data-avatar-id="${avatarId}" class="select-avatar-btn rounded-full transition-transform transform hover:scale-110 focus:outline-none">
+                                         <div class="h-16 w-16 rounded-full overflow-hidden border-4 ${state.userProfile.avatarId === avatarId ? 'border-pink-500' : 'border-transparent'} flex justify-center items-center">
+                                            ${AVATARS[avatarId]}
+                                         </div>
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <p id="avatar-saving-feedback" class="text-center text-pink-500 mt-4 hidden">Salvando...</p>
+                        </div>
+
+                        <div class="text-center mt-8">
+                            <button id="logout-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-8 rounded-full transition-colors">
+                                Sair da Conta
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            myOrders() {
+                const view = DOMElements.views.myOrders;
+                // Fetch orders for current user
+                if (!state.user || !state.db) {
+                     view.innerHTML = `<div class="text-center p-10">Faça login para ver seus pedidos.</div>`;
+                     return;
+                }
+                const q = query(collection(state.db, "orders"), where("userId", "==", state.user.uid));
+                
+                onSnapshot(q, (snapshot) => {
+                    const myOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    myOrders.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+
+                    if (myOrders.length === 0) {
+                        view.innerHTML = `<div class="text-center p-10 bg-white rounded-lg shadow-md max-w-md mx-auto mt-8"><h2 class="text-2xl font-semibold text-gray-700">Você ainda não fez nenhum pedido.</h2><p class="text-gray-500 mt-2">Explore a loja e encontre peças incríveis!</p></div>`;
+                        return;
+                    }
+                    
+                    const getStatusClass = (status) => {
+                        switch (status) {
+                            case 'Aguardando Pagamento': return 'bg-yellow-200 text-yellow-800';
+                            case 'Em preparação': return 'bg-blue-200 text-blue-800';
+                            case 'Enviado': return 'bg-indigo-200 text-indigo-800';
+                            case 'Entregue (confirmado pelo cliente)': return 'bg-emerald-200 text-emerald-800';
+                            default: return 'bg-gray-200 text-gray-800';
+                        }
+                    };
+
+                    view.innerHTML = `
+                        <h1 class="text-3xl font-bold text-gray-800 mb-6">Minhas Compras</h1>
+                        <div class="space-y-6">
+                            ${myOrders.map(order => `
+                                <div class="bg-white rounded-lg shadow-lg p-5">
+                                    <div class="flex flex-col sm:flex-row justify-between sm:items-start border-b pb-3 mb-3">
+                                        <div>
+                                            <p class="text-sm text-gray-500">Pedido: <span class="font-mono bg-gray-100 p-1 rounded">${order.id}</span></p>
+                                            <p class="text-sm text-gray-500 mt-1">Data: ${order.timestamp?.toDate().toLocaleDateString('pt-BR')}</p>
+                                        </div>
+                                        <div class="text-sm font-bold px-3 py-1 rounded-full ${getStatusClass(order.status)} mt-2 sm:mt-0">
+                                            ${order.status}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-700 mb-2">Itens:</h4>
+                                        <ul class="space-y-2 text-gray-600">
+                                            ${order.items.map(item => `
+                                                <li class="flex justify-between items-center">
+                                                    <span>${item.name}</span>
+                                                    <span class="font-semibold">R$ ${item.price.toFixed(2).replace('.',',')}</span>
+                                                </li>
+                                            `).join('')}
+                                        </ul>
+                                    </div>
+                                    <div class="mt-4 pt-4 border-t text-right space-y-1">
+                                         <p class="text-md text-gray-600">Subtotal: R$ ${order.subtotal.toFixed(2).replace('.',',')}</p>
+                                         <p class="text-md text-gray-600">Frete: R$ ${order.shipping.toFixed(2).replace('.',',')}</p>
+                                         <p class="text-lg font-bold text-gray-800"> Total: <span class="text-pink-500">R$ ${order.total.toFixed(2).replace('.', ',')}</span></p>
+                                    </div>
+                                    ${order.status === 'Enviado' ? `
+                                        <div class="mt-4 text-center">
+                                            <button data-order-id="${order.id}" class="confirm-receipt-btn bg-green-500 text-white px-6 py-2 rounded-full hover:bg-green-600 transition-colors font-semibold">
+                                                Confirmar Recebimento
+                                            </button>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }, (error) => {
+                    console.error("Erro ao buscar pedidos do usuário:", error);
+                    view.innerHTML = `<div class="text-center p-10 text-red-500">Ocorreu um erro ao carregar seus pedidos.</div>`;
+                });
+            },
+
+            adminDashboard() {
+                 const view = DOMElements.views.adminDashboard;
+                 if (!state.userProfile?.isAdmin) {
+                     view.innerHTML = `<div class="text-center p-10 bg-red-100 text-red-700 rounded-lg">Acesso negado. Apenas administradores podem ver esta página.</div>`;
+                     return;
+                 }
+                view.innerHTML = `
+                    <div class="p-4 sm:p-0"> <!-- Removed padding from main container to allow full-width tabs -->
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Painel Administrativo</h1>
+                            <span class="text-sm text-gray-500 mt-2 sm:mt-0">Logado como: <span class="font-semibold">${state.userProfile.name}</span></span>
+                        </div>
+                        <div class="flex space-x-1 border-b-2 border-gray-200 mb-6 overflow-x-auto no-scrollbar">
+                            <button data-admin-view="orders" class="admin-tab-btn py-2 px-4 font-semibold transition-colors whitespace-nowrap border-b-2 border-pink-500 text-pink-500">Pedidos</button>
+                            <button data-admin-view="users" class="admin-tab-btn py-2 px-4 font-semibold transition-colors whitespace-nowrap border-b-2 border-transparent text-gray-500 hover:text-pink-400">Usuários</button>
+                            <button data-admin-view="products" class="admin-tab-btn py-2 px-4 font-semibold transition-colors whitespace-nowrap border-b-2 border-transparent text-gray-500 hover:text-pink-400">Produtos</button>
+                            <button data-admin-view="categories" class="admin-tab-btn py-2 px-4 font-semibold transition-colors whitespace-nowrap border-b-2 border-transparent text-gray-500 hover:text-pink-400">Categorias</button>
+                        </div>
+                        <div id="admin-content">
+                            <!-- Admin content (orders, users, etc) will be injected here -->
+                        </div>
+                    </div>
+                `;
+                // Initially load the orders view
+                this.adminOrders();
+            },
+            
+            adminOrders() {
+                 const container = document.getElementById('admin-content');
+                 if(state.isLoadingOrders){
+                     container.innerHTML = this.loading("Carregando pedidos...");
+                     return;
+                 }
+                 if(state.orders.length === 0){
+                     container.innerHTML = `<div class="text-center p-10 bg-white rounded-lg shadow-md"><h2 class="text-2xl font-semibold text-gray-700">Nenhum pedido encontrado.</h2></div>`;
+                     return;
+                 }
+                 container.innerHTML = `
+                     <div class="space-y-6">
+                        ${state.orders.map(order => `
+                            <div class="bg-white rounded-lg shadow-lg p-5">
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center border-b pb-3 mb-3">
+                                    <div>
+                                        <p class="text-sm text-gray-500">ID do Pedido: <span class="font-mono bg-gray-100 p-1 rounded">${order.id}</span></p>
+                                        <p class="text-sm text-gray-500 mt-1">Cliente Email: <span class="font-semibold">${order.userEmail}</span></p>
+                                    </div>
+                                    <div class="mt-2 sm:mt-0 flex items-center space-x-3">
+                                        <button data-order-id="${order.id}" class="admin-delete-order-btn text-red-500 hover:text-red-700 p-1 rounded-full">${ICONS.trash}</button>
+                                        <span class="text-gray-600">Status:</span>
+                                        <select data-order-id="${order.id}" class="admin-update-status-select p-2 rounded-md border-gray-300 shadow-sm focus:border-pink-300 focus:ring focus:ring-pink-200 focus:ring-opacity-50">
+                                            <option value="Aguardando Pagamento" ${order.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option>
+                                            <option value="Em preparação" ${order.status === 'Em preparação' ? 'selected' : ''}>Em preparação</option>
+                                            <option value="Enviado" ${order.status === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                                            <option value="Entregue (confirmado pelo cliente)" ${order.status === 'Entregue (confirmado pelo cliente)' ? 'selected' : ''}>Entregue</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <h4 class="font-semibold text-gray-700 mb-2">Itens:</h4>
+                                        <ul class="list-disc list-inside space-y-1 text-gray-600">
+                                            ${order.items.map(item => `<li>${item.name} - <span class="font-semibold">R$ ${item.price.toFixed(2).replace('.',',')}</span></li>`).join('')}
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-700 mb-2">Endereço de Entrega:</h4>
+                                        ${order.shippingAddress ? `
+                                        <address class="not-italic text-sm text-gray-600">
+                                            ${order.shippingAddress.street}, ${order.shippingAddress.number}<br>
+                                            ${order.shippingAddress.complement ? `${order.shippingAddress.complement}<br>` : ''}
+                                            ${order.shippingAddress.neighborhood} - ${order.shippingAddress.city}/${order.shippingAddress.state}<br>
+                                            CEP: ${order.shippingAddress.cep}
+                                        </address>
+                                        ` : '<p class="text-sm text-gray-500">Endereço não informado.</p>'}
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-4 border-t text-right space-y-1">
+                                    <p class="text-md text-gray-600">Subtotal: R$ ${order.subtotal.toFixed(2).replace('.',',')}</p>
+                                    <p class="text-md text-gray-600">Frete: R$ ${order.shipping.toFixed(2).replace('.',',')}</p>
+                                    <p class="text-lg font-bold text-gray-800"> Total: <span class="text-pink-500">R$ ${order.total.toFixed(2).replace('.', ',')}</span></p>
+                                </div>
+                            </div>
+                        `).join('')}
+                     </div>
+                 `;
+            },
+            
+            adminUsers() {
+                 const container = document.getElementById('admin-content');
+                 container.innerHTML = this.loading("Carregando usuários...");
+                 
+                 const usersCollection = collection(state.db, "users");
+                 onSnapshot(usersCollection, (snapshot) => {
+                     const usersData = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}))
+                        .filter(u => u.id !== state.user.uid); // Exclude current admin
+
+                    container.innerHTML = `
+                         <div class="bg-white rounded-lg shadow-lg p-5">
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuário</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Admin</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        ${usersData.map(user => `
+                                            <tr key="${user.id}">
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center">
+                                                        <div class="h-10 w-10 rounded-full overflow-hidden flex-shrink-0 flex justify-center items-center">${AVATARS[user.avatarId || 'avatar1']}</div>
+                                                        <div class="ml-4">
+                                                            <div class="text-sm font-medium text-gray-900">${user.name}</div>
+                                                            <div class="text-sm text-gray-500">${user.id}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${user.email}</td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <label class="flex items-center">
+                                                        <input type="checkbox" data-user-id="${user.id}" class="admin-toggle-admin h-4 w-4 rounded border-gray-300 text-pink-600" ${user.isAdmin ? 'checked' : ''}>
+                                                    </label>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                                    <button data-user-id="${user.id}" class="admin-view-user-btn text-blue-600 hover:text-blue-900">Ver Detalhes</button>
+                                                    <button data-user-id="${user.id}" data-user-name="${user.name}" class="admin-delete-user-btn text-red-600 hover:text-red-900">${ICONS.trash}</button>
+                                                </td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                 });
+            },
+            
+            adminProducts() {
+                const container = document.getElementById('admin-content');
+                if(state.isLoadingProducts){
+                    container.innerHTML = this.loading("Carregando produtos...");
+                    return;
+                }
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg p-5">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold">Produtos da Loja</h2>
+                            <button id="admin-add-product-btn" class="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 text-sm font-semibold">Adicionar Produto</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produto</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preço</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${state.products.map(product => `
+                                        <tr key="${product.id}">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="flex-shrink-0 h-10 w-10"><img class="h-10 w-10 rounded-full object-cover" src="${product.imageUrl}" alt="${product.name}" onerror="this.onerror=null;this.src='https://placehold.co/100x100/CCCCCC/333333?text=Img';"></div>
+                                                    <div class="ml-4"><div class="text-sm font-medium text-gray-900">${product.name}</div></div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${product.category}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">R$ ${product.price.toFixed(2).replace('.',',')}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                                <button data-product-id="${product.id}" class="admin-edit-product-btn text-blue-600 hover:text-blue-900">${ICONS.edit}</button>
+                                                <button data-product-id="${product.id}" data-product-name="${product.name}" class="admin-delete-product-btn text-red-600 hover:text-red-900">${ICONS.trash}</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            },
+            
+            adminCategories() {
+                const container = document.getElementById('admin-content');
+                container.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-lg p-5">
+                        <h2 class="text-xl font-bold mb-4">Categorias da Loja</h2>
+                        <form id="admin-add-category-form" class="flex items-center space-x-3 mb-6">
+                            <input type="text" id="new-category-name" placeholder="Nome da nova categoria" class="flex-grow px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required/>
+                            <button type="submit" class="bg-pink-500 text-white px-4 py-2 rounded-lg hover:bg-pink-600 text-sm font-semibold">
+                                Adicionar
+                            </button>
+                        </form>
+                        <ul class="space-y-2">
+                             ${state.categories.map(cat => `
+                                <li key="${cat.id}" class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
+                                    <span class="text-gray-700">${cat.name}</span>
+                                    <button data-category-id="${cat.id}" data-category-name="${cat.name}" class="admin-delete-category-btn text-red-500 hover:text-red-700">${ICONS.trash}</button>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            },
+
+            all() {
+                this.header();
+                this.store();
+                this.cart();
+                this.customerLogin();
+                this.register();
+                this.payment();
+                this.profile();
+                this.myOrders();
+                this.adminDashboard();
+            }
+        };
+        
+        // --- MODAL FUNCTIONS ---
+        const Modal = {
+            showNotification(title, message, type = 'success') {
+                const isWelcome = type === 'register' || type === 'login';
+                const icon = isWelcome ? ICONS.welcome : ICONS.checkCircle;
+                const colorClass = isWelcome ? 'pink' : 'green';
+                
+                const modalHTML = `
+                    <div id="notification-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity opacity-0">
+                        <div class="bg-white p-8 rounded-xl shadow-2xl text-center max-w-sm mx-4 transform transition-all scale-95 opacity-0">
+                            ${icon}
+                            <h2 class="text-2xl font-bold mt-4 text-${colorClass}-500">${title}</h2>
+                            <p class="text-gray-600 mt-2">${message}</p>
+                            <button id="notification-close-btn" class="mt-6 w-full text-white font-bold py-2 px-6 rounded-full transition-colors bg-${colorClass}-500 hover:bg-${colorClass}-600">Continuar</button>
+                        </div>
+                    </div>`;
+                DOMElements.modalsContainer.innerHTML = modalHTML;
+                
+                // Animate entrance
+                setTimeout(() => {
+                    const modalOverlay = document.getElementById('notification-modal');
+                    const modalContent = modalOverlay ? modalOverlay.firstElementChild : null;
+                    if (modalOverlay && modalContent) {
+                        modalOverlay.classList.remove('opacity-0');
+                        modalContent.classList.remove('scale-95', 'opacity-0');
+                        modalContent.classList.add('scale-100', 'opacity-100');
+                    }
+                }, 10);
+
+                document.getElementById('notification-close-btn').onclick = () => this.close();
+                document.getElementById('notification-modal').onclick = (e) => {
+                    if (e.target.id === 'notification-modal') this.close();
+                };
+            },
+            
+            showConfirm(title, message, onConfirm) {
+                 const modalHTML = `
+                    <div id="confirm-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-sm mx-4">
+                            <h3 class="text-lg font-bold text-gray-800">${title}</h3>
+                            <p class="text-sm text-gray-600 mt-2">${message}</p>
+                            <div class="mt-6 flex justify-end space-x-3">
+                                <button id="confirm-cancel-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                                <button id="confirm-ok-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Confirmar</button>
+                            </div>
+                        </div>
+                    </div>
+                 `;
+                DOMElements.modalsContainer.innerHTML = modalHTML;
+
+                document.getElementById('confirm-ok-btn').onclick = () => {
+                    onConfirm();
+                    this.close();
+                };
+                document.getElementById('confirm-cancel-btn').onclick = () => this.close();
+            },
+            
+            showProductForm(productToEdit = null) {
+                const isEditing = productToEdit !== null;
+                const title = isEditing ? "Editar Produto" : "Adicionar Novo Produto";
+                
+                const modalHTML = `
+                    <div id="product-form-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-md mx-4 w-full">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">${title}</h3>
+                            <div id="product-form-error" class="text-sm text-red-500 mb-2"></div>
+                            <form id="product-form" class="space-y-4">
+                                <input type="hidden" name="id" value="${isEditing ? productToEdit.id : ''}">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Nome do Produto</label>
+                                    <input type="text" name="name" value="${isEditing ? productToEdit.name : ''}" maxlength="50" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Categoria</label>
+                                    <select name="category" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                       ${state.categories.map(cat => `<option value="${cat.name}" ${isEditing && productToEdit.category === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Descrição</label>
+                                    <textarea name="description" rows="3" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm">${isEditing ? productToEdit.description : ''}</textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Preço (ex: 29.90)</label>
+                                    <input type="number" name="price" step="0.01" value="${isEditing ? productToEdit.price : ''}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">URL da Imagem</label>
+                                    <input type="url" name="imageUrl" value="${isEditing ? productToEdit.imageUrl : ''}" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" required>
+                                </div>
+                                <div class="mt-6 flex justify-end space-x-3">
+                                    <button type="button" id="product-form-cancel-btn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancelar</button>
+                                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded-lg hover:bg-pink-700">Salvar Produto</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                DOMElements.modalsContainer.innerHTML = modalHTML;
+                
+                document.getElementById('product-form-cancel-btn').onclick = () => this.close();
+                document.getElementById('product-form').onsubmit = (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const productData = {
+                        name: formData.get('name'),
+                        category: formData.get('category'),
+                        description: formData.get('description'),
+                        price: parseFloat(formData.get('price')),
+                        imageUrl: formData.get('imageUrl'),
+                    };
+                    const productId = formData.get('id');
+
+                    if (productId) {
+                        // Update product
+                        updateDoc(doc(state.db, "products", productId), productData)
+                            .then(() => this.close())
+                            .catch(err => {
+                                document.getElementById('product-form-error').textContent = `Erro: ${err.message}`;
+                            });
+                    } else {
+                        // Add new product
+                        addDoc(collection(state.db, "products"), productData)
+                             .then(() => this.close())
+                             .catch(err => {
+                                document.getElementById('product-form-error').textContent = `Erro: ${err.message}`;
+                            });
+                    }
+                };
+            },
+
+            showUserDetails(user) {
+                const modalHTML = `
+                    <div id="user-details-modal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-lg mx-4 w-full">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-xl font-bold text-gray-800 flex items-center">${ICONS.user} Detalhes do Usuário</h3>
+                                <button id="user-details-close-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <h4 class="font-semibold">Nome</h4>
+                                    <p>${user.name}</p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold">Email</h4>
+                                    <p>${user.email}</p>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold">Data de Nascimento</h4>
+                                    <p>${new Date(user.birthDate).toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                ${user.lastShippingAddress ? `
+                                <div>
+                                    <h4 class="font-semibold">Último Endereço Usado</h4>
+                                    <address class="not-italic text-gray-700">
+                                        ${user.lastShippingAddress.street}, ${user.lastShippingAddress.number}<br>
+                                        ${user.lastShippingAddress.complement ? `${user.lastShippingAddress.complement}<br>` : ''}
+                                        ${user.lastShippingAddress.neighborhood} - ${user.lastShippingAddress.city}/${user.lastShippingAddress.state}<br>
+                                        CEP: ${user.lastShippingAddress.cep}
+                                    </address>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                DOMElements.modalsContainer.innerHTML = modalHTML;
+                document.getElementById('user-details-close-btn').onclick = () => this.close();
+            },
+
+            close() {
+                const modal = DOMElements.modalsContainer.querySelector('.fixed'); // Target the overlay
+                if (modal) {
+                    modal.style.pointerEvents = 'none';
+                    const modalContent = modal.firstElementChild;
+                    
+                    modal.classList.add('opacity-0');
+                    if (modalContent) {
+                        modalContent.classList.add('scale-95', 'opacity-0');
+                    }
+
+                    setTimeout(() => {
+                        if (DOMElements.modalsContainer.contains(modal)) {
+                            DOMElements.modalsContainer.removeChild(modal);
+                        }
+                    }, 300);
+                }
+            }
+        };
+
+        // --- CONTROLLER (App Logic) ---
+        const App = {
+            init() {
+                DOMElements.loadingView.innerHTML = render.loading('Conectando ao motor da loja...');
+                this.setupFirebase();
+                this.addEventListeners();
+            },
+            
+            setupFirebase() {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    state.db = getFirestore(app);
+                    state.auth = getAuth(app);
+                    
+                    onAuthStateChanged(state.auth, (user) => {
+                        this.detachAllListeners(); // DETACH ALL PREVIOUS LISTENERS
+                        state.user = user;
+                        state.isAuthReady = true;
+                        
+                        if (user) {
+                             // Attach listener for the user's profile first
+                            const userDocRef = doc(state.db, "users", user.uid);
+                            state.listeners.profile = onSnapshot(userDocRef, (doc) => {
+                                if (doc.exists()) {
+                                    const hadAdminStatus = state.userProfile?.isAdmin;
+                                    state.userProfile = doc.data();
+                                    // If admin status has just been granted, we might need to attach new listeners
+                                    if (state.userProfile.isAdmin && !hadAdminStatus) {
+                                        this.attachDataListeners(); // Re-attach listeners, now with admin rights
+                                    }
+                                }
+                                this.updateUI();
+                            }, (error) => {
+                                console.error("Error listening to user profile:", error);
+                                state.userProfile = null;
+                                this.updateUI();
+                            });
+                            this.attachDataListeners();
+                        } else {
+                            // User is logged out, clear all data that requires auth
+                            state.userProfile = null;
+                            state.orders = [];
+                            this.attachDataListeners(); // Attach public listeners
+                            this.updateUI();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Erro Crítico de Configuração do Firebase:", e);
+                    DOMElements.loadingView.classList.add('hidden-view');
+                    DOMElements.firebaseErrorView.textContent = "Houve um problema ao conectar com nossos serviços. Verifique o console.";
+                }
+            },
+            
+            detachAllListeners() {
+                for (const listener in state.listeners) {
+                    if (typeof state.listeners[listener] === 'function') {
+                        state.listeners[listener](); // Call the unsubscribe function
+                    }
+                }
+                state.listeners = {}; // Clear the listeners object
+            },
+
+            attachDataListeners() {
+                 if (!state.db) return;
+                 
+                 state.isLoadingProducts = true;
+                 
+                 // --- Public Listeners (Products & Categories) ---
+                 const productsCollection = collection(state.db, "products");
+                 state.listeners.products = onSnapshot(productsCollection, async (snapshot) => {
+                    state.products = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                    state.isLoadingProducts = false;
+                    if (snapshot.empty && state.userProfile?.isAdmin) {
+                        for (const product of initialProducts) { await addDoc(collection(state.db, "products"), product); }
+                    }
+                    this.updateUI();
+                 }, (error) => { console.error("Erro ao buscar produtos: ", error); state.isLoadingProducts = false; this.updateUI(); });
+                 
+                 const categoriesCollection = collection(state.db, "categories");
+                 state.listeners.categories = onSnapshot(categoriesCollection, async (snapshot) => {
+                    state.categories = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+                    if(snapshot.empty && state.userProfile?.isAdmin){
+                        for(const cat of initialCategories){ await addDoc(collection(state.db, "categories"), cat); }
+                    }
+                    this.updateUI();
+                 });
+
+                 // --- Admin-only Listeners ---
+                 if (state.user && state.userProfile?.isAdmin) {
+                    state.isLoadingOrders = true;
+                    const ordersCollection = collection(state.db, "orders");
+                    state.listeners.orders = onSnapshot(query(ordersCollection), (snapshot) => {
+                        state.orders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                        state.orders.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+                        state.isLoadingOrders = false;
+                        if(state.view === 'adminDashboard') { render.adminDashboard.call(render); }
+                    }, (error) => { console.error("Erro ao buscar pedidos (admin):", error); state.isLoadingOrders = false; });
+                 } else {
+                     state.isLoadingOrders = false;
+                 }
+            },
+            
+            setView(newView, options = {}) {
+                // Handle protected views
+                const protectedViews = ['payment', 'myOrders', 'profile', 'adminDashboard', 'address'];
+                if (protectedViews.includes(newView) && !state.user) {
+                    this.setView('customerLogin');
+                    render.customerLogin("Você precisa fazer login para acessar esta página.");
+                    return;
+                }
+                 if (newView === 'cart' && state.cart.length === 0) {
+                    Modal.showNotification("Carrinho Vazio", "Seu carrinho está vazio. Adicione produtos para continuar.", "error");
+                    return;
+                }
+                
+                state.view = newView;
+                if (options.category) {
+                    state.selectedCategory = options.category;
+                }
+                
+                Object.values(DOMElements.views).forEach(v => v.classList.add('hidden-view'));
+                
+                if(DOMElements.views[state.view]) {
+                    DOMElements.views[state.view].classList.remove('hidden-view');
+                }
+
+                // Call the specific render function for the view
+                if(render[state.view]) {
+                    render[state.view]();
+                }
+                
+                this.updateUI();
+            },
+
+            updateUI() {
+                if(!state.isAuthReady) return;
+
+                DOMElements.loadingView.classList.add('hidden-view');
+                DOMElements.firebaseErrorView.classList.add('hidden-view');
+
+                render.header();
+                
+                const currentViewRenderer = render[state.view];
+                if (currentViewRenderer) {
+                    currentViewRenderer.call(render);
+                } else {
+                    render.store();
+                }
+            },
+            
+            addEventListeners() {
+                // Use event delegation on a stable parent element
+                document.body.addEventListener('click', (e) => {
+                    const target = e.target;
+                    const navButton = target.closest('.nav-button');
+                    const addToCartBtn = target.closest('.add-to-cart-btn');
+                    const removeFromCartBtn = target.closest('.remove-from-cart-btn');
+                    const logoutBtn = target.id === 'logout-btn';
+                    const confirmOrderBtn = target.closest('#confirm-order-btn');
+                    const copyPixKeyBtn = target.closest('#copy-pix-key-btn');
+                    const editNameBtn = target.closest('#edit-name-btn');
+                    const saveNameBtn = target.id === 'save-name-btn';
+                    const cancelNameBtn = target.id === 'cancel-name-btn';
+                    const selectAvatarBtn = target.closest('.select-avatar-btn');
+                    const confirmReceiptBtn = target.closest('.confirm-receipt-btn');
+                    const adminTabBtn = target.closest('.admin-tab-btn');
+                    const adminDeleteOrderBtn = target.closest('.admin-delete-order-btn');
+                    const adminDeleteUserBtn = target.closest('.admin-delete-user-btn');
+                    const adminAddProductBtn = target.id === 'admin-add-product-btn';
+                    const adminEditProductBtn = target.closest('.admin-edit-product-btn');
+                    const adminDeleteProductBtn = target.closest('.admin-delete-product-btn');
+                    const adminDeleteCategoryBtn = target.closest('.admin-delete-category-btn');
+                    const adminViewUserBtn = target.closest('.admin-view-user-btn');
+
+                    if (navButton) {
+                        e.preventDefault();
+                        const view = navButton.dataset.view;
+                        const category = navButton.dataset.category;
+                        if (view) {
+                           this.setView(view, { category });
+                        }
+                    } else if (addToCartBtn) {
+                        const productId = addToCartBtn.dataset.productId;
+                        const product = state.products.find(p => p.id === productId);
+                        if(product) {
+                            state.cart.push(product);
+                            this.updateUI();
+                        }
+                    } else if(removeFromCartBtn) {
+                        const itemIndex = parseInt(removeFromCartBtn.dataset.itemIndex);
+                        state.cart.splice(itemIndex, 1);
+                        state.shippingCost = 0; // Recalculate shipping if cart changes
+                        this.updateUI();
+                    } else if (logoutBtn) {
+                        signOut(state.auth).then(() => {
+                           this.setView('store');
+                        });
+                    } else if (confirmOrderBtn) {
+                        this.handleProcessOrder(confirmOrderBtn);
+                    } else if (copyPixKeyBtn) {
+                        const pixKey = document.getElementById('pix-key').textContent;
+                        this.copyToClipboard(pixKey, copyPixKeyBtn);
+                    } else if(editNameBtn) {
+                        document.getElementById('profile-name-display').classList.add('hidden');
+                        document.getElementById('profile-name-edit').classList.remove('hidden');
+                    } else if(saveNameBtn) {
+                        this.handleUpdateName();
+                    } else if(cancelNameBtn) {
+                        document.getElementById('profile-name-display').classList.remove('hidden');
+                        document.getElementById('profile-name-edit').classList.add('hidden');
+                    } else if (selectAvatarBtn) {
+                        const avatarId = selectAvatarBtn.dataset.avatarId;
+                        this.handleUpdateAvatar(avatarId);
+                    } else if (confirmReceiptBtn) {
+                        const orderId = confirmReceiptBtn.dataset.orderId;
+                        Modal.showConfirm('Confirmar Recebimento', 'Você confirma que recebeu este pedido?', () => {
+                             updateDoc(doc(state.db, "orders", orderId), { status: "Entregue (confirmado pelo cliente)" });
+                        });
+                    } else if(adminTabBtn) {
+                        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+                            btn.classList.remove('border-pink-500', 'text-pink-500');
+                            btn.classList.add('border-transparent', 'text-gray-500');
+                        });
+                        adminTabBtn.classList.add('border-pink-500', 'text-pink-500');
+                        adminTabBtn.classList.remove('border-transparent', 'text-gray-500');
+                        const adminView = `admin${adminTabBtn.dataset.adminView.charAt(0).toUpperCase() + adminTabBtn.dataset.adminView.slice(1)}`;
+                        if(render[adminView]) render[adminView].call(render);
+                    } else if (adminDeleteOrderBtn) {
+                        const orderId = adminDeleteOrderBtn.dataset.orderId;
+                        Modal.showConfirm('Excluir Pedido', `Tem certeza que quer deletar o pedido ${orderId}?`, () => {
+                           deleteDoc(doc(state.db, "orders", orderId));
+                        });
+                    } else if (adminViewUserBtn) {
+                        const userId = adminViewUserBtn.dataset.userId;
+                        getDocs(query(collection(state.db, 'users'), where('__name__', '==', userId)))
+                            .then(snapshot => {
+                                if (!snapshot.empty) {
+                                    Modal.showUserDetails(snapshot.docs[0].data());
+                                }
+                            });
+                    } else if (adminDeleteUserBtn) {
+                        const userId = adminDeleteUserBtn.dataset.userId;
+                        const userName = adminDeleteUserBtn.dataset.userName;
+                        Modal.showConfirm('Excluir Usuário', `Tem certeza que quer deletar o usuário ${userName}?`, () => {
+                           // Note: This only deletes Firestore data. For a full deletion, you'd need a Cloud Function to delete the auth user.
+                           deleteDoc(doc(state.db, "users", userId));
+                        });
+                    } else if (adminAddProductBtn) {
+                        Modal.showProductForm();
+                    } else if (adminEditProductBtn) {
+                        const productId = adminEditProductBtn.dataset.productId;
+                        const product = state.products.find(p => p.id === productId);
+                        if (product) Modal.showProductForm(product);
+                    } else if (adminDeleteProductBtn) {
+                        const productId = adminDeleteProductBtn.dataset.productId;
+                        const productName = adminDeleteProductBtn.dataset.productName;
+                         Modal.showConfirm('Excluir Produto', `Tem certeza que quer deletar o produto ${productName}?`, () => {
+                           deleteDoc(doc(state.db, "products", productId));
+                        });
+                    } else if (adminDeleteCategoryBtn) {
+                        const categoryId = adminDeleteCategoryBtn.dataset.categoryId;
+                        const categoryName = adminDeleteCategoryBtn.dataset.categoryName;
+                        Modal.showConfirm('Excluir Categoria', `Tem certeza que quer deletar a categoria ${categoryName}?`, () => {
+                           deleteDoc(doc(state.db, "categories", categoryId));
+                        });
+                    }
+                });
+
+                document.body.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    if(e.target.id === 'login-form'){
+                        this.handleLogin(e.target);
+                    } else if (e.target.id === 'register-form') {
+                        this.handleRegister(e.target);
+                    } else if (e.target.id === 'admin-add-category-form') {
+                        const newName = document.getElementById('new-category-name').value.trim();
+                        if (newName) {
+                           addDoc(collection(state.db, "categories"), { name: newName });
+                           e.target.reset();
+                        }
+                    } else if (e.target.id === 'address-form') {
+                        this.handleAddressFormSubmit(e.target);
+                    }
+                });
+                
+                 document.body.addEventListener('change', (e) => {
+                     const target = e.target;
+                     const updateStatusSelect = target.closest('.admin-update-status-select');
+                     const toggleAdminCheckbox = target.closest('.admin-toggle-admin');
+                     
+                     if (updateStatusSelect) {
+                         const orderId = updateStatusSelect.dataset.orderId;
+                         const newStatus = updateStatusSelect.value;
+                         updateDoc(doc(state.db, "orders", orderId), { status: newStatus });
+                     } else if (toggleAdminCheckbox) {
+                         const userId = toggleAdminCheckbox.dataset.userId;
+                         const isAdmin = toggleAdminCheckbox.checked;
+                         updateDoc(doc(state.db, "users", userId), { isAdmin: isAdmin });
+                     }
+                 });
+
+                 document.body.addEventListener('input', (e) => {
+                    const target = e.target;
+                    if (target.id === 'addr-cep') {
+                        let value = target.value.replace(/\D/g, ''); 
+                        if (value.length > 5) {
+                            value = value.slice(0, 5) + '-' + value.slice(5, 8);
+                        }
+                        target.value = value;
+                    }
+                    if (target.id === 'addr-number') {
+                        target.value = target.value.replace(/\D/g, '');
+                    }
+                 });
+
+                 document.body.addEventListener('blur', (e) => {
+                    if (e.target.id === 'addr-cep') {
+                        this.handleShippingCalculation(e.target.value);
+                    }
+                 }, true); // Use capturing to handle blur event properly
+            },
+
+            copyToClipboard(text, buttonElement) {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                document.body.appendChild(textarea);
+                textarea.select();
+                try {
+                    document.execCommand('copy');
+                    if(buttonElement) {
+                       const originalContent = buttonElement.innerHTML;
+                       buttonElement.innerHTML = 'Copiado!';
+                       buttonElement.classList.add('text-green-500');
+                       setTimeout(() => {
+                           buttonElement.innerHTML = originalContent;
+                           buttonElement.classList.remove('text-green-500');
+                       }, 2000);
+                    }
+                } catch (err) {
+                    console.error('Oops, unable to copy', err);
+                }
+                document.body.removeChild(textarea);
+            },
+
+            async handleCepBlur(cep, form) {
+                const cepValue = cep.replace(/\D/g, '');
+                if (cepValue.length !== 8) return;
+
+                if (!form) return;
+
+                try {
+                    const response = await fetch(`https://viacep.com.br/ws/${cepValue}/json/`);
+                    const data = await response.json();
+                    if (data.erro) {
+                        // Handle CEP not found
+                    } else {
+                        form.querySelector('#addr-street').value = data.logradouro;
+                        form.querySelector('#addr-neighborhood').value = data.bairro;
+                        form.querySelector('#addr-city').value = data.localidade;
+                        form.querySelector('#addr-state').value = data.uf;
+                        form.querySelector('#addr-number').focus();
+                    }
+                } catch (error) {
+                    console.error("Erro ao buscar CEP:", error);
+                }
+            },
+            
+            async handleShippingCalculation(cep) {
+                const cepValue = cep.replace(/\D/g, '');
+
+                if (cepValue.length !== 8) {
+                    return;
+                }
+                
+                await this.handleCepBlur(cepValue, document.getElementById('address-form'));
+
+                const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+                const FREE_SHIPPING_THRESHOLD = 250.00;
+
+                if (subtotal >= FREE_SHIPPING_THRESHOLD) {
+                    state.shippingCost = 0;
+                } else {
+                    const isSaoPaulo = cepValue.startsWith('0') || cepValue.startsWith('1');
+                    const shippingRate = isSaoPaulo ? 15.00 : 30.00;
+                    state.shippingCost = shippingRate;
+                }
+                
+                // Update summary in address view
+                const shippingCostEl = document.getElementById('address-shipping-cost');
+                const totalCostEl = document.getElementById('address-total-cost');
+                const newTotal = subtotal + state.shippingCost;
+
+                if (shippingCostEl && totalCostEl) {
+                    shippingCostEl.textContent = `R$ ${state.shippingCost.toFixed(2).replace('.',',')}`;
+                    totalCostEl.textContent = `R$ ${newTotal.toFixed(2).replace('.',',')}`;
+                }
+            },
+            
+            handleAddressFormSubmit(form) {
+                const formData = new FormData(form);
+                const addressData = Object.fromEntries(formData.entries());
+                const errorDiv = form.querySelector('#address-error');
+                errorDiv.classList.add('hidden');
+                
+                // Simple validation
+                if (!addressData.cep || !addressData.street || !addressData.number || !addressData.neighborhood || !addressData.city || !addressData.state) {
+                    errorDiv.textContent = 'Por favor, preencha todos os campos do endereço.';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                state.shippingAddress = addressData;
+                this.setView('payment');
+            },
+
+            async handleLogin(form) {
+                const email = form.querySelector('#login-email').value;
+                const password = form.querySelector('#login-password').value;
+                const errorDiv = form.querySelector('#login-error');
+                errorDiv.textContent = '';
+
+                try {
+                    await signInWithEmailAndPassword(state.auth, email, password);
+                    // The onAuthStateChanged listener will handle UI updates.
+                    this.setView('store');
+                    // We show a generic message, the header will update with the name once the profile loads.
+                    Modal.showNotification('Login bem-sucedido!', `Que bom te ver de volta!`, 'login');
+                } catch(error) {
+                    if(error.code === 'auth/invalid-credential'){
+                        errorDiv.textContent = 'Email ou senha inválidos.';
+                    } else {
+                        errorDiv.textContent = 'Falha ao logar. Tente novamente.';
+                    }
+                    console.error("Erro de login:", error);
+                }
+            },
+            
+            async handleRegister(form) {
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+                const errorDiv = form.querySelector('#register-error');
+                errorDiv.textContent = '';
+                errorDiv.classList.add('hidden');
+
+                // Validations
+                if (data.password.length < 6) { errorDiv.textContent = "A senha precisa ter no mínimo 6 caracteres."; errorDiv.classList.remove('hidden'); return; }
+                const today = new Date();
+                const birth = new Date(data.birthDate);
+                let age = today.getFullYear() - birth.getFullYear();
+                const m = today.getMonth() - birth.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) { age--; }
+                if (age < 18) { errorDiv.textContent = "Você precisa ter pelo menos 18 anos para se registrar."; errorDiv.classList.remove('hidden'); return; }
+                if (!data.terms) { errorDiv.textContent = "Você precisa aceitar os Termos de Serviço."; errorDiv.classList.remove('hidden'); return; }
+                
+                const userData = {
+                    name: data.name,
+                    email: data.email,
+                    birthDate: data.birthDate,
+                    avatarId: 'avatar1',
+                    createdAt: Timestamp.now(),
+                    isAdmin: false
+                };
+
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(state.auth, data.email, data.password);
+                    const user = userCredential.user;
+                    await updateProfile(user, { displayName: data.name });
+                    await setDoc(doc(state.db, "users", user.uid), userData);
+                    this.setView('store');
+                    Modal.showNotification(`Bem-vinda(o), ${data.name}!`, `Sua conta na Vera Lã e Fofura foi criada com sucesso.`, 'register');
+                } catch (error) {
+                    if (error.code === 'auth/email-already-in-use') { errorDiv.textContent = 'Este email já está cadastrado.'; }
+                    else { errorDiv.textContent = 'Ocorreu uma falha ao registrar.'; }
+                     errorDiv.classList.remove('hidden');
+                    console.error("Erro de registro:", error);
+                }
+            },
+            
+            async handleProcessOrder(button) {
+                 if (!state.user) {
+                     Modal.showNotification('Erro', 'Você precisa estar logado para registrar um pedido.', 'error');
+                     return;
+                 }
+                 if (state.cart.length === 0) {
+                     Modal.showNotification('Carrinho Vazio', 'Adicione itens ao carrinho antes de registrar o pedido.', 'error');
+                     return;
+                 }
+                 if (!state.shippingAddress) {
+                     Modal.showNotification('Endereço Faltando', 'Por favor, informe o endereço de entrega antes de registrar o pedido.', 'error');
+                     this.setView('address');
+                     return;
+                 }
+                
+                 button.disabled = true;
+                 button.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Registrando...`;
+                 
+                 const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+                 const total = subtotal + state.shippingCost;
+
+                 const newOrder = { 
+                    userId: state.user.uid, 
+                    userEmail: state.user.email,
+                    shippingAddress: state.shippingAddress,
+                    items: state.cart, 
+                    subtotal: subtotal,
+                    shipping: state.shippingCost,
+                    total: total,
+                    status: 'Aguardando Pagamento', 
+                    timestamp: Timestamp.now() 
+                };
+
+                try { 
+                    const orderRef = await addDoc(collection(state.db, "orders"), newOrder);
+                    // Also update the user's document with their last used address
+                    await updateDoc(doc(state.db, "users", state.user.uid), {
+                        lastShippingAddress: state.shippingAddress
+                    });
+
+                    state.cart = []; // Clear cart
+                    state.shippingCost = 0; // Reset shipping
+                    state.shippingAddress = null; // Reset address
+                    Modal.showNotification('Pedido Registrado!', 'Obrigado! Seu pedido foi registrado e aguarda a confirmação do pagamento. Você já pode vê-lo em "Minhas Compras".', 'success');
+                    this.setView('myOrders'); 
+                } catch (error) { 
+                    console.error("Erro ao registrar pedido: ", error); 
+                    Modal.showNotification('Erro', 'Não foi possível registrar seu pedido. Tente novamente.', 'error');
+                    button.disabled = false;
+                    button.textContent = "Já paguei, registrar meu pedido!";
+                }
+            },
+            
+            async handleUpdateName() {
+                const newNameInput = document.getElementById('new-name-input');
+                const newName = newNameInput.value.trim();
+                
+                if (newName === '' || newName === state.userProfile.name) {
+                    document.getElementById('profile-name-display').classList.remove('hidden');
+                    document.getElementById('profile-name-edit').classList.add('hidden');
+                    return;
+                }
+                
+                try {
+                    await updateProfile(state.auth.currentUser, { displayName: newName });
+                    const userDocRef = doc(state.db, "users", state.auth.currentUser.uid);
+                    await updateDoc(userDocRef, { name: newName });
+                } catch (error) {
+                    console.error("Erro ao atualizar o nome:", error);
+                }
+            },
+            
+            async handleUpdateAvatar(avatarId) {
+                const feedbackEl = document.getElementById('avatar-saving-feedback');
+                feedbackEl.classList.remove('hidden');
+                
+                try {
+                    const userDocRef = doc(state.db, "users", state.auth.currentUser.uid);
+                    await updateDoc(userDocRef, { avatarId: avatarId });
+                } catch (error) {
+                    console.error("Erro ao atualizar avatar:", error);
+                } finally {
+                    feedbackEl.classList.add('hidden');
+                }
+            }
+        };
+
+        // --- Start the App ---
+        // The onAuthStateChanged listener will trigger the initial UI update
+        // and data fetching once authentication state is confirmed.
+        App.init();
+
+    </script>
+</body>
+</html>
