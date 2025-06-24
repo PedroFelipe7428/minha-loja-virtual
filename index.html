@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vera Lã e Fofura</title>
+    <title>Vera Croche</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧶</text></svg>">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -57,6 +58,28 @@
         input.readonly-style {
             background-color: #f3f4f6; /* bg-gray-100 */
         }
+       
+        /* Animações */
+        .view {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .product-card {
+            transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .interactive-button {
+            transition: transform 0.2s ease-in-out;
+        }
+        .interactive-button:active {
+            transform: scale(0.95);
+        }
     </style>
 </head>
 <body class="bg-pink-50">
@@ -76,6 +99,7 @@
             <div id="store-view" class="view"></div>
             <div id="cart-view" class="view hidden-view"></div>
             <div id="address-view" class="view hidden-view"></div>
+            <div id="pickup-view" class="view hidden-view"></div>
             <div id="payment-view" class="view hidden-view"></div>
             <div id="customerLogin-view" class="view hidden-view"></div>
             <div id="register-view" class="view hidden-view"></div>
@@ -90,6 +114,11 @@
 
         </main>
         
+         <!-- Footer -->
+        <footer id="app-footer" class="hidden-view bg-white/50 text-center p-4 mt-8 text-sm text-gray-600">
+            © 2024 Vera Croche - Todos os direitos reservados.
+        </footer>
+
         <!-- Modals Container -->
         <div id="modals-container">
              <!-- Modals will be injected here -->
@@ -168,6 +197,7 @@
             view: 'store',
             cart: [],
             shippingAddress: null,
+            pickupDetails: null,
             shippingCost: 0,
             products: [],
             orders: [],
@@ -190,6 +220,7 @@
                 store: document.getElementById('store-view'),
                 cart: document.getElementById('cart-view'),
                 address: document.getElementById('address-view'),
+                pickup: document.getElementById('pickup-view'),
                 payment: document.getElementById('payment-view'),
                 customerLogin: document.getElementById('customerLogin-view'),
                 register: document.getElementById('register-view'),
@@ -238,19 +269,13 @@
                 DOMElements.header.innerHTML = `
                     <div class="container mx-auto flex justify-between items-center p-4">
                         <div data-view="store" data-category="All" class="text-2xl font-bold text-pink-500 cursor-pointer pacifico-font">
-                            Vera Lã e Fofura
+                            Vera Croche
                         </div>
                         <nav class="flex items-center gap-1 md:gap-2">
-                            <div class="relative group">
-                                <button data-view="store" data-category="All" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
-                                    ${ICONS.store}
-                                    <span class="hidden md:inline">Loja</span>
-                                </button>
-                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 hidden group-hover:block">
-                                    <a href="#" data-view="store" data-category="All" class="block px-4 py-2 text-sm text-gray-700 hover:bg-pink-50">Todos os Produtos</a>
-                                    ${state.categories.map(cat => `<a href="#" data-view="store" data-category="${cat.name}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-pink-50">${cat.name}</a>`).join('')}
-                                </div>
-                            </div>
+                            <button data-view="store" class="nav-button flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
+                                ${ICONS.store}
+                                <span class="hidden md:inline">Loja</span>
+                            </button>
                             <button data-view="cart" class="nav-button relative flex items-center gap-2 p-2 rounded-lg text-gray-600 hover:bg-pink-100">
                                 ${ICONS.shoppingCart}
                                 <span class="hidden md:inline">Carrinho</span>
@@ -279,15 +304,46 @@
                 }
                 const filteredProducts = state.products.filter(p => state.selectedCategory === 'All' || p.category === state.selectedCategory);
                 
-                if (filteredProducts.length === 0) {
-                     view.innerHTML = `<div class="text-center p-10 bg-white rounded-lg shadow-md"><h2 class="text-2xl font-semibold text-gray-700">Nenhum produto encontrado.</h2><p class="text-gray-500 mt-2">Tente outra categoria ou volte mais tarde!</p></div>`;
+                if (filteredProducts.length === 0 && state.selectedCategory !== 'All') {
+                     view.innerHTML = `
+                        <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="category-filter" class="block text-sm font-medium text-gray-700">Filtrar por Categoria</label>
+                                    <select id="category-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md">
+                                        <option value="All">Todas as Categorias</option>
+                                        ${state.categories.map(cat => `<option value="${cat.name}" ${state.selectedCategory === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="search-input" class="block text-sm font-medium text-gray-700">Pesquisar por Nome</label>
+                                    <input type="text" id="search-input" placeholder="Ex: Sousplat de Lã" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center p-10 bg-white rounded-lg shadow-md"><h2 class="text-2xl font-semibold text-gray-700">Nenhum produto encontrado.</h2><p class="text-gray-500 mt-2">Tente outra categoria ou volte mais tarde!</p></div>`;
                      return;
                 }
 
                 view.innerHTML = `
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    <div class="mb-6 bg-white p-4 rounded-lg shadow-md">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="category-filter" class="block text-sm font-medium text-gray-700">Filtrar por Categoria</label>
+                                <select id="category-filter" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-pink-500 focus:border-pink-500 sm:text-sm rounded-md">
+                                    <option value="All">Todas as Categorias</option>
+                                    ${state.categories.map(cat => `<option value="${cat.name}" ${state.selectedCategory === cat.name ? 'selected' : ''}>${cat.name}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label for="search-input" class="block text-sm font-medium text-gray-700">Pesquisar por Nome</label>
+                                <input type="text" id="search-input" placeholder="Ex: Sousplat de Lã" class="mt-1 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         ${filteredProducts.map(product => `
-                            <div class="bg-white rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 flex flex-col">
+                            <div class="product-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
                                 <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-48 sm:h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x400/CCCCCC/333333?text=Imagem+Indisponível';">
                                 <div class="p-4 flex flex-col flex-grow">
                                     <h3 class="text-lg font-semibold text-gray-800">${product.name}</h3>
@@ -295,7 +351,7 @@
                                     <p class="text-sm text-gray-600 mt-2 flex-grow">${product.description}</p>
                                     <div class="mt-4 flex justify-between items-center">
                                         <span class="text-xl font-bold text-pink-500">R$ ${product.price.toFixed(2).replace('.', ',')}</span>
-                                        <button data-product-id="${product.id}" class="add-to-cart-btn bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 transition-colors text-sm font-semibold">
+                                        <button data-product-id="${product.id}" class="add-to-cart-btn interactive-button bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 transition-colors text-sm font-semibold">
                                             Adicionar
                                         </button>
                                     </div>
@@ -340,9 +396,14 @@
 
                             <div class="mt-8 pt-4 border-t text-right space-y-2">
                                 <p class="text-lg">Subtotal: <span class="font-semibold">R$ ${subtotal.toFixed(2).replace('.', ',')}</span></p>
-                                <button data-view="address" class="nav-button mt-4 bg-green-500 text-white px-8 py-3 rounded-full hover:bg-green-600 transition-colors text-lg font-bold w-full sm:w-auto">
-                                    Informar Endereço e Frete
-                                </button>
+                                <div class="flex flex-col sm:flex-row justify-end gap-4 mt-4">
+                                    <button data-view="pickup" class="nav-button interactive-button bg-purple-500 text-white px-8 py-3 rounded-full hover:bg-purple-600 transition-colors text-lg font-bold">
+                                        Retirar no Local
+                                    </button>
+                                    <button data-view="address" class="nav-button interactive-button bg-green-500 text-white px-8 py-3 rounded-full hover:bg-green-600 transition-colors text-lg font-bold">
+                                        Calcular Frete e Entregar
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -447,6 +508,10 @@
                             <fieldset>
                                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                                     <div class="md:col-span-1">
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-cpf">CPF do Destinatário</label>
+                                        <input id="addr-cpf" name="cpf" type="text" placeholder="000.000.000-00" maxlength="14" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
+                                    </div>
+                                    <div class="md:col-span-2">
                                         <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-cep">CEP</label>
                                         <input id="addr-cep" name="cep" type="text" placeholder="00000-000" maxlength="9" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
                                     </div>
@@ -454,11 +519,11 @@
                                         <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-street">Rua / Logradouro</label>
                                         <input id="addr-street" name="street" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 readonly-style" readonly required />
                                     </div>
-                                    <div>
+                                     <div>
                                         <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-number">Número</label>
                                         <input id="addr-number" name="number" type="text" inputmode="numeric" pattern="[0-9]*" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
                                     </div>
-                                     <div class="md:col-span-2">
+                                     <div class="md:col-span-3">
                                         <label class="block text-gray-700 text-sm font-bold mb-2" for="addr-complement">Complemento (Opcional)</label>
                                         <input id="addr-complement" name="complement" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" />
                                     </div>
@@ -476,9 +541,87 @@
                                     </div>
                                 </div>
                             </fieldset>
+                             <div class="mt-6">
+                                 <label class="flex items-center">
+                                    <input id="addr-data-consent" name="dataConsent" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500" required>
+                                    <span class="ml-2 text-sm text-gray-900">Confirmo que os dados de entrega estão corretos. Li e aceito os <button type="button" data-view="terms" class="nav-button font-bold text-pink-500 hover:underline">Termos de Serviço</button>.</span>
+                                </label>
+                            </div>
                             <div class="mt-8 flex justify-center">
-                                <button type="submit" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full transition-colors">
+                                <button type="submit" class="interactive-button bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full transition-colors">
                                     Confirmar Endereço e Ir para Pagamento
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+            },
+
+            pickup() {
+                const view = DOMElements.views.pickup;
+                const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
+                const minDate = new Date();
+                minDate.setDate(minDate.getDate() + 7);
+                const minPickupDate = minDate.toISOString().split('T')[0];
+
+                view.innerHTML = `
+                     <div class="max-w-2xl mx-auto mt-6">
+                        <form id="pickup-form" class="bg-white shadow-xl rounded-lg p-8">
+                            <h2 class="text-2xl font-bold text-center text-gray-700 mb-8">Agendamento para Retirada</h2>
+                            <div id="pickup-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 text-center"></div>
+
+                            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                                <h3 class="font-semibold text-lg mb-2">Resumo do Pedido</h3>
+                                <div class="space-y-1 text-gray-700">
+                                    <div class="flex justify-between"><span>Subtotal:</span> <span>R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
+                                    <div class="flex justify-between"><span>Frete:</span> <span>R$ 0,00 (Retirada)</span></div>
+                                    <div class="flex justify-between font-bold text-xl border-t pt-2 mt-2"><span>Total:</span> <span id="address-total-cost">R$ ${subtotal.toFixed(2).replace('.',',')}</span></div>
+                                </div>
+                            </div>
+                            
+                            <fieldset class="space-y-4">
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="pickup-name">Nome Completo (para retirada)</label>
+                                    <input id="pickup-name" name="name" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required value="${state.userProfile?.name || ''}" />
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2" for="pickup-cpf">CPF (para retirada)</label>
+                                    <input id="pickup-cpf" name="cpf" type="text" placeholder="000.000.000-00" maxlength="14" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="pickup-date">Data da Retirada (mín. 7 dias)</label>
+                                        <input id="pickup-date" name="pickupDate" type="date" min="${minPickupDate}" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required />
+                                    </div>
+                                     <div>
+                                        <label class="block text-gray-700 text-sm font-bold mb-2" for="pickup-time">Horário da Retirada</label>
+                                        <select id="pickup-time" name="pickupTime" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required>
+                                            <option value="">Selecione um horário</option>
+                                            <option value="10:00">10:00</option>
+                                            <option value="11:00">11:00</option>
+                                            <option value="14:00">14:00</option>
+                                            <option value="15:00">15:00</option>
+                                            <option value="16:00">16:00</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-gray-700 text-sm font-bold mb-2">Forma de Pagamento</label>
+                                    <div class="flex items-center space-x-4">
+                                        <label class="flex items-center"><input type="radio" name="paymentMethod" value="pix" class="h-4 w-4 text-pink-600" checked> <span class="ml-2">Pagar agora via Pix</span></label>
+                                        <label class="flex items-center"><input type="radio" name="paymentMethod" value="local" class="h-4 w-4 text-pink-600"> <span class="ml-2">Pagar na Retirada</span></label>
+                                    </div>
+                                </div>
+                                 <div class="pt-2">
+                                     <label class="flex items-center">
+                                        <input id="pickup-data-consent" name="dataConsent" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-pink-600 focus:ring-pink-500" required>
+                                        <span class="ml-2 text-sm text-gray-900">Confirmo que os dados estão corretos e me comprometo a retirar o pedido na data agendada, conforme os <button type="button" data-view="terms" class="nav-button font-bold text-pink-500 hover:underline">Termos de Serviço</button>.</span>
+                                    </label>
+                                </div>
+                            </fieldset>
+                            <div class="mt-8 flex justify-center">
+                                <button type="submit" class="interactive-button bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 px-8 rounded-full transition-colors">
+                                    Agendar e Finalizar Pedido
                                 </button>
                             </div>
                         </form>
@@ -492,34 +635,45 @@
                     <div class="max-w-4xl mx-auto p-4 sm:p-6 mt-6 bg-white rounded-lg shadow-xl">
                         <h1 class="text-3xl font-bold text-gray-800 mb-4">Termos de Serviço e Política de Privacidade</h1>
                         <p class="text-sm text-gray-500 mb-6">Última atualização: 24 de Junho de 2024</p>
-                        <div class="prose max-w-none text-gray-700">
-                            <p>Bem-vindo(a) à Vera Lã e Fofura! Agradecemos por escolher nossos produtos artesanais. Ao utilizar nosso site e realizar uma compra, você concorda com os seguintes termos e condições.</p>
+                        <div class="prose max-w-none text-gray-700 space-y-4">
+                            <p>Bem-vindo(a) à <strong>Vera Croche</strong>! Agradecemos por escolher nossos produtos artesanais. Ao utilizar nosso site, se cadastrar ou realizar uma compra, você concorda integralmente com os seguintes termos e condições.</p>
                             
-                            <h2 class="font-semibold mt-6">1. Coleta de Dados</h2>
-                            <p>Para processar seu pedido e garantir uma entrega segura, coletamos as seguintes informações durante o cadastro: nome completo, data de nascimento, e-mail e senha. O seu endereço completo será solicitado no momento de finalizar a compra, exclusivamente para o envio dos produtos.</p>
+                            <div>
+                                <h2 class="font-semibold text-xl mt-6">1. Cadastro e Coleta de Dados</h2>
+                                <p>Para processar seu pedido e garantir uma entrega segura, coletamos as seguintes informações durante o cadastro: nome completo, data de nascimento, e-mail e senha. Para a finalização do pedido, solicitamos dados de entrega (CPF, CEP, rua, etc.) ou de retirada (Nome, CPF, data e hora). Seus dados são armazenados de forma segura em nosso banco de dados e utilizados exclusivamente para:</p>
+                                <ul>
+                                    <li>Processamento, envio ou agendamento de retirada de pedidos.</li>
+                                    <li>Comunicação sobre o status do seu pedido.</li>
+                                    <li>Verificação de identidade e segurança da sua conta.</li>
+                                </ul>
+                                <p><strong>Jamais compartilharemos, venderemos ou alugaremos seus dados pessoais a terceiros.</strong> Ao fornecer seus dados, você atesta a veracidade dos mesmos e concorda com seu uso para as finalidades descritas.</p>
+                            </div>
+
+                            <div>
+                                <h2 class="font-semibold text-xl mt-6">2. Pagamento</h2>
+                                <p>Os pagamentos podem ser realizados via PIX ou diretamente no ato da retirada, conforme a opção escolhida no momento do agendamento. Para pagamentos via PIX, as instruções e a chave com o valor exato serão fornecidos na tela de pagamento. Após realizar a transação, é indispensável que você retorne ao nosso site e clique no botão **"Já paguei, registrar meu pedido"**. A confirmação do pagamento será feita manualmente por nossa equipe para que seu pedido seja liberado para a fase de preparação.</p>
+                            </div>
                             
-                            <h2 class="font-semibold mt-6">2. Uso das Informações</h2>
-                            <p>As informações coletadas são para uso exclusivo da Vera Lã e Fofura para: </p>
-                            <ul>
-                                <li>Processamento e envio de pedidos.</li>
-                                <li>Comunicação sobre o status do seu pedido.</li>
-                                <li>Verificação de identidade e segurança da conta.</li>
-                            </ul>
-                            <p><strong>Nós não compartilhamos, vendemos ou alugamos seus dados pessoais a terceiros.</strong></p>
+                            <div>
+                                <h2 class="font-semibold text-xl mt-6">3. Prazos, Envio e Retirada</h2>
+                                <p>Nossos produtos são artesanais e feitos com muito carinho. Por isso, o prazo para preparação e postagem pode variar. Uma estimativa será informada na página "Minhas Compras" após a confirmação do pedido.</p>
+                                <ul>
+                                    <li><strong>Entrega:</strong> O frete é calculado com base no CEP de destino. O valor é informado na tela de endereço e somado ao total da compra.</li>
+                                    <li><strong>Retirada no Local:</strong> A retirada deve ser agendada com no mínimo 7 dias de antecedência. O não comparecimento na data e hora marcadas sem aviso prévio pode resultar no cancelamento do pedido.</li>
+                                </ul>
+                            </div>
 
-                            <h2 class="font-semibold mt-6">3. Pagamento via PIX</h2>
-                            <p>Os pagamentos são realizados via PIX. As instruções e chave com o valor exato serão fornecidos na tela de pagamento. Após realizar o pagamento, você deverá clicar em "Já paguei, registrar meu pedido" para que possamos confirmar o pagamento e iniciar a preparação do envio.</p>
-                            
-                            <h2 class="font-semibold mt-6">4. Prazos e Envio</h2>
-                            <p>Após a confirmação do pagamento, seu pedido entrará em fase de preparação. O prazo para postagem pode variar, pois nossos produtos são artesanais. O frete é calculado com base no CEP de destino e o valor final é informado no carrinho antes da finalização da compra.</p>
+                             <div>
+                                <h2 class="font-semibold text-xl mt-6">4. Responsabilidades do Usuário</h2>
+                                <p>É de total responsabilidade do usuário fornecer informações corretas e atualizadas, incluindo nome completo, CPF e endereço de entrega. Dados incorretos podem resultar em atrasos, na impossibilidade de entrega ou de retirada do pedido, sem direito a reembolso dos custos de frete, se aplicável.</p>
+                             </div>
 
-                             <h2 class="font-semibold mt-6">5. Responsabilidades do Usuário</h2>
-                             <p>É responsabilidade do usuário fornecer informações corretas e atualizadas, especialmente o endereço de entrega. Endereços incorretos podem resultar em atrasos ou na impossibilidade de entrega do pedido.</p>
-
-                            <p class="mt-8">Ao marcar a caixa "Li e aceito os Termos de Serviço", você confirma que está ciente e concorda com todas as políticas descritas acima. Se tiver qualquer dúvida, entre em contato conosco.</p>
+                             <div class="mt-8 border-t pt-4">
+                                <p><em><strong>Aviso Legal:</strong> Estes termos foram elaborados para garantir clareza e segurança para ambas as partes. No entanto, eles não constituem aconselhamento jurídico. Recomenda-se a consulta a um profissional de direito para garantir total conformidade com a legislação vigente.</em></p>
+                             </div>
 
                             <div class="text-center mt-8">
-                                <button data-view="register" class="nav-button bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600">Voltar ao Cadastro</button>
+                                <button onclick="history.back()" class="nav-button bg-pink-500 text-white px-6 py-2 rounded-full hover:bg-pink-600">Voltar</button>
                             </div>
                         </div>
                     </div>
@@ -547,7 +701,8 @@
                                 <p class="font-semibold text-teal-800">1. Copie a chave e pague no app do seu banco:</p>
                                 <div class="my-2">
                                     <p class="text-gray-500 text-sm">Chave Pix (Celular):</p>
-                                    <p class="font-mono text-xl my-1">${formattedPixKey}</p>
+                                    <p id="pix-key-display" class="font-mono text-xl my-1">${formattedPixKey}</p>
+                                    <textarea id="pix-key-value" class="absolute -left-full">${PIX_KEY}</textarea>
                                 </div>
                                 <button id="copy-pix-key-btn" class="flex items-center justify-center w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded transition-colors">
                                     ${ICONS.copy} Copiar Chave Pix
@@ -630,7 +785,7 @@
                 }
                 const q = query(collection(state.db, "orders"), where("userId", "==", state.user.uid));
                 
-                onSnapshot(q, (snapshot) => {
+                state.listeners.myOrders = onSnapshot(q, (snapshot) => {
                     const myOrders = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                     myOrders.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
 
@@ -644,6 +799,7 @@
                             case 'Aguardando Pagamento': return 'bg-yellow-200 text-yellow-800';
                             case 'Em preparação': return 'bg-blue-200 text-blue-800';
                             case 'Enviado': return 'bg-indigo-200 text-indigo-800';
+                            case 'Pronto para Retirada': return 'bg-purple-200 text-purple-800';
                             case 'Entregue (confirmado pelo cliente)': return 'bg-emerald-200 text-emerald-800';
                             default: return 'bg-gray-200 text-gray-800';
                         }
@@ -652,7 +808,14 @@
                     view.innerHTML = `
                         <h1 class="text-3xl font-bold text-gray-800 mb-6">Minhas Compras</h1>
                         <div class="space-y-6">
-                            ${myOrders.map(order => `
+                            ${myOrders.map(order => {
+                                const deliveryDate = order.timestamp.toDate();
+                                const isPickup = order.orderType === 'pickup';
+                                const estimateText = isPickup ? 'Estimativa para Retirada:' : 'Estimativa de Entrega:';
+                                const daysToAdd = isPickup ? 2 : 5;
+                                deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
+                                
+                                return `
                                 <div class="bg-white rounded-lg shadow-lg p-5">
                                     <div class="flex flex-col sm:flex-row justify-between sm:items-start border-b pb-3 mb-3">
                                         <div>
@@ -663,6 +826,7 @@
                                             ${order.status}
                                         </div>
                                     </div>
+                                    <p class="text-sm text-gray-600 mb-2">${estimateText} <span class="font-semibold">${deliveryDate.toLocaleDateString('pt-BR')}</span></p>
                                     <div>
                                         <h4 class="font-semibold text-gray-700 mb-2">Itens:</h4>
                                         <ul class="space-y-2 text-gray-600">
@@ -679,15 +843,16 @@
                                          <p class="text-md text-gray-600">Frete: R$ ${order.shipping.toFixed(2).replace('.',',')}</p>
                                          <p class="text-lg font-bold text-gray-800"> Total: <span class="text-pink-500">R$ ${order.total.toFixed(2).replace('.', ',')}</span></p>
                                     </div>
-                                    ${order.status === 'Enviado' ? `
+                                    ${order.status === 'Enviado' || order.status === 'Pronto para Retirada' ? `
                                         <div class="mt-4 text-center">
                                             <button data-order-id="${order.id}" class="confirm-receipt-btn bg-green-500 text-white px-6 py-2 rounded-full hover:bg-green-600 transition-colors font-semibold">
-                                                Confirmar Recebimento
+                                                Confirmar ${isPickup ? 'Retirada' : 'Recebimento'}
                                             </button>
                                         </div>
                                     ` : ''}
                                 </div>
-                            `).join('')}
+                                `
+                            }).join('')}
                         </div>
                     `;
                 }, (error) => {
@@ -735,12 +900,15 @@
                  }
                  container.innerHTML = `
                      <div class="space-y-6">
-                        ${state.orders.map(order => `
+                        ${state.orders.map(order => {
+                            const isPickup = order.orderType === 'pickup';
+                            return `
                             <div class="bg-white rounded-lg shadow-lg p-5">
                                 <div class="flex flex-col sm:flex-row justify-between sm:items-center border-b pb-3 mb-3">
                                     <div>
                                         <p class="text-sm text-gray-500">ID do Pedido: <span class="font-mono bg-gray-100 p-1 rounded">${order.id}</span></p>
                                         <p class="text-sm text-gray-500 mt-1">Cliente Email: <span class="font-semibold">${order.userEmail}</span></p>
+                                        <p class="text-sm text-gray-500 mt-1">Tipo: <span class="font-semibold">${isPickup ? 'Retirada no Local' : 'Entrega'}</span></p>
                                     </div>
                                     <div class="mt-2 sm:mt-0 flex items-center space-x-3">
                                         <button data-order-id="${order.id}" class="admin-delete-order-btn text-red-500 hover:text-red-700 p-1 rounded-full">${ICONS.trash}</button>
@@ -748,7 +916,7 @@
                                         <select data-order-id="${order.id}" class="admin-update-status-select p-2 rounded-md border-gray-300 shadow-sm focus:border-pink-300 focus:ring focus:ring-pink-200 focus:ring-opacity-50">
                                             <option value="Aguardando Pagamento" ${order.status === 'Aguardando Pagamento' ? 'selected' : ''}>Aguardando Pagamento</option>
                                             <option value="Em preparação" ${order.status === 'Em preparação' ? 'selected' : ''}>Em preparação</option>
-                                            <option value="Enviado" ${order.status === 'Enviado' ? 'selected' : ''}>Enviado</option>
+                                            ${isPickup ? `<option value="Pronto para Retirada" ${order.status === 'Pronto para Retirada' ? 'selected' : ''}>Pronto para Retirada</option>` : `<option value="Enviado" ${order.status === 'Enviado' ? 'selected' : ''}>Enviado</option>`}
                                             <option value="Entregue (confirmado pelo cliente)" ${order.status === 'Entregue (confirmado pelo cliente)' ? 'selected' : ''}>Entregue</option>
                                         </select>
                                     </div>
@@ -761,15 +929,23 @@
                                         </ul>
                                     </div>
                                     <div>
-                                        <h4 class="font-semibold text-gray-700 mb-2">Endereço de Entrega:</h4>
-                                        ${order.shippingAddress ? `
+                                        <h4 class="font-semibold text-gray-700 mb-2">${isPickup ? 'Detalhes da Retirada' : 'Endereço de Entrega'}</h4>
+                                        ${isPickup && order.pickupDetails ? `
+                                            <div class="text-sm text-gray-600">
+                                                <p><strong>Nome:</strong> ${order.pickupDetails.name}</p>
+                                                <p><strong>CPF:</strong> ${order.pickupDetails.cpf}</p>
+                                                <p><strong>Pagamento:</strong> ${order.pickupDetails.paymentMethod === 'local' ? 'Na Retirada' : 'Pago via Pix'}</p>
+                                                <p><strong>Agendado para:</strong> ${new Date(order.pickupDetails.pickupDate).toLocaleDateString('pt-BR')} às ${order.pickupDetails.pickupTime}</p>
+                                            </div>
+                                        ` : order.shippingAddress ? `
                                         <address class="not-italic text-sm text-gray-600">
+                                            <p><strong>CPF:</strong> ${order.shippingAddress.cpf || 'Não informado'}</p>
                                             ${order.shippingAddress.street}, ${order.shippingAddress.number}<br>
                                             ${order.shippingAddress.complement ? `${order.shippingAddress.complement}<br>` : ''}
                                             ${order.shippingAddress.neighborhood} - ${order.shippingAddress.city}/${order.shippingAddress.state}<br>
                                             CEP: ${order.shippingAddress.cep}
                                         </address>
-                                        ` : '<p class="text-sm text-gray-500">Endereço não informado.</p>'}
+                                        ` : '<p class="text-sm text-gray-500">Dados não informados.</p>'}
                                     </div>
                                 </div>
                                 <div class="mt-4 pt-4 border-t text-right space-y-1">
@@ -778,7 +954,7 @@
                                     <p class="text-lg font-bold text-gray-800"> Total: <span class="text-pink-500">R$ ${order.total.toFixed(2).replace('.', ',')}</span></p>
                                 </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                      </div>
                  `;
             },
@@ -788,7 +964,7 @@
                  container.innerHTML = this.loading("Carregando usuários...");
                  
                  const usersCollection = collection(state.db, "users");
-                 onSnapshot(usersCollection, (snapshot) => {
+                 state.listeners.users = onSnapshot(usersCollection, (snapshot) => {
                      const usersData = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}))
                         .filter(u => u.id !== state.user.uid); // Exclude current admin
 
@@ -1074,6 +1250,7 @@
                                 <div>
                                     <h4 class="font-semibold">Último Endereço Usado</h4>
                                     <address class="not-italic text-gray-700">
+                                        <p><strong>CPF:</strong> ${user.lastShippingAddress.cpf || 'Não informado'}</p>
                                         ${user.lastShippingAddress.street}, ${user.lastShippingAddress.number}<br>
                                         ${user.lastShippingAddress.complement ? `${user.lastShippingAddress.complement}<br>` : ''}
                                         ${user.lastShippingAddress.neighborhood} - ${user.lastShippingAddress.city}/${user.lastShippingAddress.state}<br>
@@ -1213,19 +1390,20 @@
             
             setView(newView, options = {}) {
                 // Handle protected views
-                const protectedViews = ['payment', 'myOrders', 'profile', 'adminDashboard', 'address'];
+                const protectedViews = ['payment', 'myOrders', 'profile', 'adminDashboard', 'address', 'pickup'];
                 if (protectedViews.includes(newView) && !state.user) {
                     this.setView('customerLogin');
                     render.customerLogin("Você precisa fazer login para acessar esta página.");
                     return;
                 }
-                 if (newView === 'cart' && state.cart.length === 0) {
+                 if ((newView === 'cart' || newView === 'address' || newView === 'pickup') && state.cart.length === 0) {
                     Modal.showNotification("Carrinho Vazio", "Seu carrinho está vazio. Adicione produtos para continuar.", "error");
+                    this.setView('store');
                     return;
                 }
                 
                 state.view = newView;
-                if (options.category) {
+                if (options && options.category) {
                     state.selectedCategory = options.category;
                 }
                 
@@ -1237,7 +1415,9 @@
 
                 // Call the specific render function for the view
                 if(render[state.view]) {
-                    render[state.view]();
+                    render[state.view].call(render);
+                } else {
+                     render.store.call(render);
                 }
                 
                 this.updateUI();
@@ -1256,6 +1436,14 @@
                     currentViewRenderer.call(render);
                 } else {
                     render.store();
+                }
+
+                 // Footer visibility
+                const footer = document.getElementById('app-footer');
+                if(state.user && state.view === 'store') {
+                    footer.classList.remove('hidden-view');
+                } else {
+                    footer.classList.add('hidden-view');
                 }
             },
             
@@ -1309,7 +1497,7 @@
                     } else if (confirmOrderBtn) {
                         this.handleProcessOrder(confirmOrderBtn);
                     } else if (copyPixKeyBtn) {
-                        const pixKey = document.getElementById('pix-key').textContent;
+                        const pixKey = document.getElementById('pix-key-value').value;
                         this.copyToClipboard(pixKey, copyPixKeyBtn);
                     } else if(editNameBtn) {
                         document.getElementById('profile-name-display').classList.add('hidden');
@@ -1391,6 +1579,8 @@
                         }
                     } else if (e.target.id === 'address-form') {
                         this.handleAddressFormSubmit(e.target);
+                    } else if (e.target.id === 'pickup-form') {
+                        this.handlePickupFormSubmit(e.target);
                     }
                 });
                 
@@ -1398,29 +1588,67 @@
                      const target = e.target;
                      const updateStatusSelect = target.closest('.admin-update-status-select');
                      const toggleAdminCheckbox = target.closest('.admin-toggle-admin');
-                     
-                     if (updateStatusSelect) {
-                         const orderId = updateStatusSelect.dataset.orderId;
-                         const newStatus = updateStatusSelect.value;
-                         updateDoc(doc(state.db, "orders", orderId), { status: newStatus });
-                     } else if (toggleAdminCheckbox) {
-                         const userId = toggleAdminCheckbox.dataset.userId;
-                         const isAdmin = toggleAdminCheckbox.checked;
-                         updateDoc(doc(state.db, "users", userId), { isAdmin: isAdmin });
-                     }
+                     const categoryFilter = target.id === 'category-filter';
+
+                    if (updateStatusSelect) {
+                        const orderId = updateStatusSelect.dataset.orderId;
+                        const newStatus = updateStatusSelect.value;
+                        updateDoc(doc(state.db, "orders", orderId), { status: newStatus });
+                    } else if (toggleAdminCheckbox) {
+                        const userId = toggleAdminCheckbox.dataset.userId;
+                        const isAdmin = toggleAdminCheckbox.checked;
+                        updateDoc(doc(state.db, "users", userId), { isAdmin: isAdmin });
+                    } else if(categoryFilter) {
+                        state.selectedCategory = target.value;
+                        render.store();
+                    }
                  });
 
                  document.body.addEventListener('input', (e) => {
                     const target = e.target;
-                    if (target.id === 'addr-cep') {
+                    if (target.id === 'addr-cep' || target.id === 'pickup-cpf' || target.id === 'addr-cpf') {
                         let value = target.value.replace(/\D/g, ''); 
-                        if (value.length > 5) {
-                            value = value.slice(0, 5) + '-' + value.slice(5, 8);
+                        if (target.id === 'addr-cep') {
+                            if (value.length > 5) {
+                                value = value.slice(0, 5) + '-' + value.slice(5, 8);
+                            }
+                        }
+                        if (target.id === 'pickup-cpf' || target.id === 'addr-cpf') {
+                           value = value.slice(0, 11);
+                           value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                           value = value.replace(/(\d{3})(\d)/, '$1.$2');
+                           value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
                         }
                         target.value = value;
                     }
                     if (target.id === 'addr-number') {
                         target.value = target.value.replace(/\D/g, '');
+                    }
+                    if (target.id === 'pickup-name') {
+                        target.value = target.value.replace(/[^a-zA-Z\s]/g, '');
+                    }
+                    if (target.id === 'search-input') {
+                        const searchTerm = target.value.toLowerCase();
+                        const filtered = state.products.filter(p => p.name.toLowerCase().includes(searchTerm));
+                        const productGrid = document.getElementById('product-grid');
+                        if (productGrid) {
+                             productGrid.innerHTML = filtered.map(product => `
+                                <div class="bg-white rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-1 transition-transform duration-300 flex flex-col">
+                                    <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-48 sm:h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x400/CCCCCC/333333?text=Imagem+Indisponível';">
+                                    <div class="p-4 flex flex-col flex-grow">
+                                        <h3 class="text-lg font-semibold text-gray-800">${product.name}</h3>
+                                        <p class="text-sm text-gray-500 mt-1">${product.category}</p>
+                                        <p class="text-sm text-gray-600 mt-2 flex-grow">${product.description}</p>
+                                        <div class="mt-4 flex justify-between items-center">
+                                            <span class="text-xl font-bold text-pink-500">R$ ${product.price.toFixed(2).replace('.', ',')}</span>
+                                            <button data-product-id="${product.id}" class="add-to-cart-btn bg-pink-500 text-white px-4 py-2 rounded-full hover:bg-pink-600 transition-colors text-sm font-semibold">
+                                                Adicionar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
                     }
                  });
 
@@ -1514,14 +1742,45 @@
                 errorDiv.classList.add('hidden');
                 
                 // Simple validation
-                if (!addressData.cep || !addressData.street || !addressData.number || !addressData.neighborhood || !addressData.city || !addressData.state) {
-                    errorDiv.textContent = 'Por favor, preencha todos os campos do endereço.';
+                if (!addressData.cep || !addressData.cpf || !addressData.street || !addressData.number || !addressData.neighborhood || !addressData.city || !addressData.state) {
+                    errorDiv.textContent = 'Por favor, preencha todos os campos do endereço, incluindo o CPF.';
                     errorDiv.classList.remove('hidden');
                     return;
                 }
                 
                 state.shippingAddress = addressData;
+                state.pickupDetails = null; // Ensure pickup details are cleared
                 this.setView('payment');
+            },
+
+            handlePickupFormSubmit(form) {
+                const formData = new FormData(form);
+                const pickupData = Object.fromEntries(formData.entries());
+                const errorDiv = form.querySelector('#pickup-error');
+                errorDiv.classList.add('hidden');
+
+                if(!pickupData.name || !pickupData.cpf || !pickupData.pickupDate || !pickupData.pickupTime) {
+                    errorDiv.textContent = 'Por favor, preencha todos os campos para a retirada.';
+                    errorDiv.classList.remove('hidden');
+                    return;
+                }
+                
+                const message = pickupData.paymentMethod === 'local' 
+                    ? 'Você está agendando a retirada e optou por pagar no local. Confirma o agendamento?'
+                    : 'Você está agendando a retirada e irá pagar via Pix. Confirma o agendamento?';
+
+                Modal.showConfirm('Confirmar Agendamento?', message, () => {
+                    state.pickupDetails = pickupData;
+                    state.shippingAddress = null; // Ensure shipping address is cleared
+                    state.shippingCost = 0; // No shipping cost for pickup
+
+                    if(pickupData.paymentMethod === 'pix') {
+                        this.setView('payment');
+                    } else {
+                        // If paying on pickup, process the order directly
+                        this.handleProcessOrder(null, true); 
+                    }
+                });
             },
 
             async handleLogin(form) {
@@ -1532,9 +1791,7 @@
 
                 try {
                     await signInWithEmailAndPassword(state.auth, email, password);
-                    // The onAuthStateChanged listener will handle UI updates.
                     this.setView('store');
-                    // We show a generic message, the header will update with the name once the profile loads.
                     Modal.showNotification('Login bem-sucedido!', `Que bom te ver de volta!`, 'login');
                 } catch(error) {
                     if(error.code === 'auth/invalid-credential'){
@@ -1578,7 +1835,7 @@
                     await updateProfile(user, { displayName: data.name });
                     await setDoc(doc(state.db, "users", user.uid), userData);
                     this.setView('store');
-                    Modal.showNotification(`Bem-vinda(o), ${data.name}!`, `Sua conta na Vera Lã e Fofura foi criada com sucesso.`, 'register');
+                    Modal.showNotification(`Bem-vinda(o), ${data.name}!`, `Sua conta na Vera Croche foi criada com sucesso.`, 'register');
                 } catch (error) {
                     if (error.code === 'auth/email-already-in-use') { errorDiv.textContent = 'Este email já está cadastrado.'; }
                     else { errorDiv.textContent = 'Ocorreu uma falha ao registrar.'; }
@@ -1587,7 +1844,7 @@
                 }
             },
             
-            async handleProcessOrder(button) {
+            async handleProcessOrder(button, isLocalPayment = false) {
                  if (!state.user) {
                      Modal.showNotification('Erro', 'Você precisa estar logado para registrar um pedido.', 'error');
                      return;
@@ -1596,14 +1853,16 @@
                      Modal.showNotification('Carrinho Vazio', 'Adicione itens ao carrinho antes de registrar o pedido.', 'error');
                      return;
                  }
-                 if (!state.shippingAddress) {
-                     Modal.showNotification('Endereço Faltando', 'Por favor, informe o endereço de entrega antes de registrar o pedido.', 'error');
-                     this.setView('address');
+                 if (!state.shippingAddress && !state.pickupDetails) {
+                     Modal.showNotification('Dados Faltando', 'Por favor, informe um endereço de entrega ou os dados para retirada.', 'error');
+                     this.setView('cart');
                      return;
                  }
                 
-                 button.disabled = true;
-                 button.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Registrando...`;
+                if (button) {
+                    button.disabled = true;
+                    button.innerHTML = `<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Registrando...`;
+                }
                  
                  const subtotal = state.cart.reduce((total, item) => total + item.price, 0);
                  const total = subtotal + state.shippingCost;
@@ -1611,32 +1870,42 @@
                  const newOrder = { 
                     userId: state.user.uid, 
                     userEmail: state.user.email,
-                    shippingAddress: state.shippingAddress,
                     items: state.cart, 
                     subtotal: subtotal,
                     shipping: state.shippingCost,
                     total: total,
                     status: 'Aguardando Pagamento', 
-                    timestamp: Timestamp.now() 
+                    timestamp: Timestamp.now(),
+                    orderType: state.shippingAddress ? 'delivery' : 'pickup',
+                    shippingAddress: state.shippingAddress,
+                    pickupDetails: state.pickupDetails
                 };
 
                 try { 
                     const orderRef = await addDoc(collection(state.db, "orders"), newOrder);
-                    // Also update the user's document with their last used address
-                    await updateDoc(doc(state.db, "users", state.user.uid), {
-                        lastShippingAddress: state.shippingAddress
-                    });
+                    
+                    if (state.shippingAddress) {
+                        await updateDoc(doc(state.db, "users", state.user.uid), {
+                            lastShippingAddress: state.shippingAddress
+                        });
+                    }
 
-                    state.cart = []; // Clear cart
-                    state.shippingCost = 0; // Reset shipping
-                    state.shippingAddress = null; // Reset address
-                    Modal.showNotification('Pedido Registrado!', 'Obrigado! Seu pedido foi registrado e aguarda a confirmação do pagamento. Você já pode vê-lo em "Minhas Compras".', 'success');
+                    state.cart = [];
+                    state.shippingCost = 0;
+                    state.shippingAddress = null;
+                    state.pickupDetails = null;
+                    const message = isLocalPayment 
+                        ? 'Seu agendamento foi confirmado! O pedido aguarda o pagamento no local.'
+                        : 'Obrigado! Seu pedido foi registrado e aguarda a confirmação do pagamento. Você já pode vê-lo em "Minhas Compras".';
+                    Modal.showNotification('Pedido Registrado!', message, 'success');
                     this.setView('myOrders'); 
                 } catch (error) { 
                     console.error("Erro ao registrar pedido: ", error); 
                     Modal.showNotification('Erro', 'Não foi possível registrar seu pedido. Tente novamente.', 'error');
-                    button.disabled = false;
-                    button.textContent = "Já paguei, registrar meu pedido!";
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = "Já paguei, registrar meu pedido!";
+                    }
                 }
             },
             
