@@ -80,6 +80,13 @@
         .interactive-button:active {
             transform: scale(0.95);
         }
+        .modal-image {
+            animation: zoomIn 0.3s ease-out;
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
     </style>
 </head>
 <body class="bg-pink-50">
@@ -580,6 +587,10 @@
                             </div>
                             
                             <fieldset class="space-y-4">
+                                <div class="bg-purple-100 border-l-4 border-purple-500 text-purple-700 p-4" role="alert">
+                                  <p class="font-bold">Endereço para Retirada</p>
+                                  <p>Rua Giacomo Meritano Cortese, 127, Primeiro de Maio, Sertãozinho - SP</p>
+                                </div>
                                 <div>
                                     <label class="block text-gray-700 text-sm font-bold mb-2" for="pickup-name">Nome Completo (para retirada)</label>
                                     <input id="pickup-name" name="name" type="text" class="shadow-sm appearance-none border rounded w-full py-2 px-3 text-gray-700 focus:ring-2 focus:ring-pink-300 transition-colors" required value="${state.userProfile?.name || ''}" />
@@ -1272,6 +1283,23 @@
                 document.getElementById('user-details-close-btn').onclick = () => this.close();
             },
 
+            showImage(src, alt) {
+                const modalHTML = `
+                    <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4 transition-opacity">
+                        <div class="relative modal-image">
+                            <img src="${src}" alt="${alt}" class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl">
+                            <button id="image-modal-close-btn" class="absolute -top-3 -right-3 bg-white text-black rounded-full h-8 w-8 flex items-center justify-center text-2xl font-bold">&times;</button>
+                        </div>
+                    </div>
+                `;
+                DOMElements.modalsContainer.innerHTML = modalHTML;
+
+                document.getElementById('image-modal-close-btn').onclick = () => this.close();
+                document.getElementById('image-modal').onclick = (e) => {
+                    if (e.target.id === 'image-modal') this.close();
+                };
+            },
+
             close() {
                 const modal = DOMElements.modalsContainer.querySelector('.fixed'); // Target the overlay
                 if (modal) {
@@ -1394,7 +1422,7 @@
                  }
             },
             
-            setView(newView, options = {}) {
+            async setView(newView, options = {}) {
                 // Handle protected views
                 const protectedViews = ['payment', 'myOrders', 'profile', 'adminDashboard', 'address', 'pickup'];
                 if (protectedViews.includes(newView) && !state.user) {
@@ -1406,6 +1434,20 @@
                     Modal.showNotification("Carrinho Vazio", "Seu carrinho está vazio. Adicione produtos para continuar.", "error");
                     this.setView('store');
                     return;
+                }
+
+                // Check for pending pickup orders
+                if ((newView === 'cart' || newView === 'address' || newView === 'pickup')) {
+                    const q = query(collection(state.db, "orders"), where("userId", "==", state.user.uid), where("orderType", "==", "pickup"), where("status", "!=", "Entregue (confirmado pelo cliente)"));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        Modal.showNotification(
+                            "Pedido Pendente",
+                            "Você já tem uma retirada agendada. Por favor, complete ou aguarde a finalização do seu pedido atual antes de fazer um novo.",
+                            "error"
+                        );
+                        return; // Block navigation
+                    }
                 }
                 
                 state.view = newView;
@@ -1476,6 +1518,11 @@
                     const adminDeleteProductBtn = target.closest('.admin-delete-product-btn');
                     const adminDeleteCategoryBtn = target.closest('.admin-delete-category-btn');
                     const adminViewUserBtn = target.closest('.admin-view-user-btn');
+                    const productImage = target.closest('.product-card img');
+
+                    if (productImage) {
+                         Modal.showImage(productImage.src, productImage.alt);
+                    }
 
                     if (navButton) {
                         e.preventDefault();
@@ -1640,7 +1687,7 @@
                         if (productGrid) {
                              productGrid.innerHTML = filtered.map(product => `
                                 <div class="product-card bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
-                                    <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-48 sm:h-56 object-cover" onerror="this.onerror=null;this.src='https://placehold.co/400x400/CCCCCC/333333?text=Imagem+Indisponível';">
+                                    <img src="${product.imageUrl}" alt="${product.name}" class="w-full h-48 sm:h-56 object-cover cursor-pointer">
                                     <div class="p-4 flex flex-col flex-grow">
                                         <h3 class="text-lg font-semibold text-gray-800">${product.name}</h3>
                                         <p class="text-sm text-gray-500 mt-1">${product.category}</p>
